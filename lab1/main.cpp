@@ -6,6 +6,8 @@
 #include <cmath>
 #include <ctime>
 #include <cstdlib>
+#include <list>
+
 
 using namespace std;
 
@@ -92,6 +94,80 @@ public:
     }
 };
 
+class GreedyCycle: Algorithm {
+public:
+    int FindNearestUnvisitedNode(int node, vector<bool> visited, vector<vector<int>> distances){
+        int min_distance = INT32_MAX;
+        int min_index = -1;
+        for(int j=0; j<distances.size(); j++){
+            if(visited[j]) continue;
+            if(distances[node][j] < min_distance){
+                min_distance = distances[node][j];
+                min_index = j;
+            }
+        }
+        return min_index;
+    }
+
+
+    pair<int, int> PlacementAndIncrease(int node, int index, int nearest_vertex, vector<int> cycle, vector<vector<int>> distances){
+        int inFront = -distances[cycle[index == 0 ? cycle.size() - 1 : index - 1]][node] + distances[cycle[index == 0 ? cycle.size() - 1 : index - 1]][nearest_vertex] + distances[nearest_vertex][node];
+        // cout << inFront << endl;
+        // cout<< "index: " << index << " cycle size: " << cycle.size() << endl;
+        // Pamiętaj, że ta funkcja nie może się wywołać jeśli index == 0 - wtedy cycle ma tylko jeden element
+        int behind = -distances[node][cycle[(index+1)%cycle.size()]] + distances[nearest_vertex][cycle[(index+1)%cycle.size()]] + distances[node][nearest_vertex];
+        // cout << behind << "\n" << endl;
+        if (inFront < behind){
+            return make_pair(index, inFront);
+        }
+        else{
+            return make_pair(index+1, behind);
+        }
+    }
+
+
+    pair<vector<int>,int> solve(vector<vector<int>> distances, vector<int> costs) {
+        vector<int> bestSolution;
+        int bestCost = INT32_MAX;
+        int solution_size = distances.size()/2;
+        vector<int> current_solution;
+        for(int i=0;i<distances.size();i++){
+            cout << i << endl;
+            current_solution.push_back(i);
+            vector<bool> visited(costs.size());
+            visited[i] = true;
+
+            while(current_solution.size() < solution_size){
+                // int nearest_vertex = INT32_MAX;
+                // int index;
+                int smallest_increase = INT32_MAX;
+                int insert_index = -1;
+                int insert_node = -1;
+
+                for(int j=0; j<current_solution.size(); j++){
+                    int nearest = FindNearestUnvisitedNode(current_solution[j], visited, distances);
+                    pair<int, int> placement = PlacementAndIncrease(current_solution[j], j, nearest, current_solution, distances);
+                    int increase = placement.second;
+                    if(increase < smallest_increase){
+                        smallest_increase = increase;
+                        insert_index = placement.first;
+                        insert_node = nearest;
+                    }
+                }
+                current_solution.insert(current_solution.begin() + insert_index, insert_node);
+                visited[insert_node] = true; 
+            }
+            int current_cost = calculate_cost(current_solution, distances, costs);
+            if(current_cost < bestCost){
+                bestCost = current_cost;
+                bestSolution = current_solution;
+            }
+            current_solution.clear();
+        }
+        return make_pair(bestSolution, bestCost);
+    }
+};
+
 
 
 vector<vector<int>> read_file(string filename) {
@@ -131,6 +207,7 @@ int main(){
     srand(static_cast<unsigned>(time(0)));
     auto data = read_file("./TSPA.csv");
     auto distances = calcDistances(data);
+    // GreedyCycle algo;
     NearestNeighboursSearch algo;
     vector<int> costs;
     for(int i=0; i< data.size(); i++){
