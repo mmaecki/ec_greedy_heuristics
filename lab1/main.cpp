@@ -96,6 +96,18 @@ public:
 
 class GreedyCycle: Algorithm {
 public:
+    
+    void write_vector_to_file(vector<int> sol){
+        string filename = "animation_greedy/" + to_string(sol.size()) + ".csv";
+        ofstream file;
+        file.open(filename);
+        for(int i=0; i<sol.size(); i++){
+            file << sol[i] << endl;
+        }
+        file.close();
+    }
+
+
     int FindNearestUnvisitedNode(int node, vector<bool> visited, vector<vector<int>> distances){
         int min_distance = INT32_MAX;
         int min_index = -1;
@@ -112,11 +124,7 @@ public:
 
     pair<int, int> PlacementAndIncrease(int node, int index, int nearest_vertex, vector<int> cycle, vector<vector<int>> distances){
         int inFront = -distances[cycle[index == 0 ? cycle.size() - 1 : index - 1]][node] + distances[cycle[index == 0 ? cycle.size() - 1 : index - 1]][nearest_vertex] + distances[nearest_vertex][node];
-        // cout << inFront << endl;
-        // cout<< "index: " << index << " cycle size: " << cycle.size() << endl;
-        // Pamiętaj, że ta funkcja nie może się wywołać jeśli index == 0 - wtedy cycle ma tylko jeden element
         int behind = -distances[node][cycle[(index+1)%cycle.size()]] + distances[nearest_vertex][cycle[(index+1)%cycle.size()]] + distances[node][nearest_vertex];
-        // cout << behind << "\n" << endl;
         if (inFront < behind){
             return make_pair(index, inFront);
         }
@@ -131,11 +139,15 @@ public:
         int bestCost = INT32_MAX;
         int solution_size = distances.size()/2;
         vector<int> current_solution;
+        vector<vector<int>> graph;
+
         for(int i=0;i<distances.size();i++){
             cout << i << endl;
             current_solution.push_back(i);
             vector<bool> visited(costs.size());
-            visited[i] = true;
+            // visited[i] = true;
+            vector<vector<int>> curr_graph;
+
 
             while(current_solution.size() < solution_size){
                 // int nearest_vertex = INT32_MAX;
@@ -143,6 +155,7 @@ public:
                 int smallest_increase = INT32_MAX;
                 int insert_index = -1;
                 int insert_node = -1;
+
 
                 for(int j=0; j<current_solution.size(); j++){
                     int nearest = FindNearestUnvisitedNode(current_solution[j], visited, distances);
@@ -156,14 +169,21 @@ public:
                 }
                 current_solution.insert(current_solution.begin() + insert_index, insert_node);
                 visited[insert_node] = true; 
+                // write_vector_to_file(current_solution);
+                curr_graph.push_back(current_solution);
             }
             int current_cost = calculate_cost(current_solution, distances, costs);
             if(current_cost < bestCost){
                 bestCost = current_cost;
                 bestSolution = current_solution;
+                graph = curr_graph;
             }
             current_solution.clear();
         }
+        // To save process of creating a graph
+        // for(int i=0; i<graph.size(); i++){
+        //     write_vector_to_file(graph[i]);
+        // }
         return make_pair(bestSolution, bestCost);
     }
 };
@@ -206,17 +226,28 @@ vector<vector<int>> calcDistances(vector<vector<int>> data){
 int main(){
     srand(static_cast<unsigned>(time(0)));
     auto data = read_file("./TSPA.csv");
+    // auto data = read_file("./TSPB.csv");
+    // auto data = read_file("./TSPC.csv");
+    // auto data = read_file("./TSPD.csv");
     auto distances = calcDistances(data);
-    // GreedyCycle algo;
-    NearestNeighboursSearch algo;
+    GreedyCycle algo;
+    NearestNeighboursSearch algo2;
     vector<int> costs;
     for(int i=0; i< data.size(); i++){
         costs.push_back(data[i][2]);
     }
     auto result = algo.solve(distances, costs);
+    auto result2 = algo2.solve(distances, costs);
     //print result
+    cout << "Greedy cycle: " << endl;
     cout << "Cost " << result.second << endl;
     for(int i=0; i<result.first.size(); i++){
         cout<<result.first[i]<<" ";
+    }
+    cout << endl;
+    cout << "Nearest neighbours: " << endl;
+    cout << "Cost " << result2.second << endl;
+    for(int i=0; i<result2.first.size(); i++){
+        cout<<result2.first[i]<<" ";
     }
 }
