@@ -71,12 +71,12 @@ public:
             current_solution.push_back(i);
             vector<bool> visited(costs.size());
             while(current_solution.size() < solution_size){
-                int min_distance = INT32_MAX;
+                int min_cost = INT32_MAX;
                 int min_index = -1;
                 for(int j=0; j<distances.size(); j++){
                     if(visited[j]) continue;
-                    if(distances[current_solution[current_solution.size()-1]][j] < min_distance){
-                        min_distance = distances[current_solution[current_solution.size()-1]][j];
+                    if(distances[current_solution[current_solution.size()-1]][j] < min_cost){
+                        min_cost = distances[current_solution[current_solution.size()-1]][j] + costs[j];
                         min_index = j;
                     }
                 }
