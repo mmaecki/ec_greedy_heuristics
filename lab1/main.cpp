@@ -122,12 +122,15 @@ public:
             // cout << i << endl;
             current_solution.push_back(i);
             vector<bool> visited(costs.size());
-            // visited[i] = true;
+            visited[i] = true;
             vector<vector<int>> curr_graph;
 
 
             while(current_solution.size() < solution_size){
-
+                if(current_solution.size() == 2){
+                    current_solution.insert(current_solution.begin(), i);
+                    continue;
+                }
                 int smallest_increase = INT32_MAX;
                 int insert_index = -1;
                 int insert_node = -1;
@@ -226,8 +229,8 @@ int main(){
     srand(static_cast<unsigned>(time(0)));
     // auto data = read_file("./TSPA.csv");
     // auto data = read_file("./TSPB.csv");
-    auto data = read_file("./TSPC.csv");
-    // auto data = read_file("./TSPD.csv");
+    // auto data = read_file("./TSPC.csv");
+    auto data = read_file("./TSPD.csv");
     auto distances = calcDistances(data);
     GreedyCycle algo;
     NearestNeighboursSearch algo2;
