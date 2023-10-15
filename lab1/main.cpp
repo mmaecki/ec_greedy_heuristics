@@ -7,15 +7,27 @@
 #include <ctime>
 #include <cstdlib>
 #include <list>
-
+#include <memory>
 
 using namespace std;
 
 
+struct Result{
+    int bestCost;
+    int worstCost;
+    int averageCost;
+    vector<int> bestSolution;
+    vector<int> worstSolution;
 
-class Algorithm {
+    Result(int bc, int wc, int ac, vector<int> bs, vector<int> ws)
+        : bestCost(bc), worstCost(wc), averageCost(ac), bestSolution(bs), worstSolution(ws) {}
+};
+
+
+class Algo {
 public:
-    pair<vector<int>,int> solve(vector<vector<int>> distances, vector<int> costs);
+    std::string name;
+    virtual Result solve(vector<vector<int>> distances, vector<int> costs) =0;
     int calculate_cost(vector<int> solution, vector<vector<int>> distances, vector<int> costs){
         int cost = 0;
         for(int j=0; j<solution.size()-1; j++){
@@ -31,45 +43,66 @@ public:
 
 
 
-class RandomSearch: Algorithm {
+class RandomSearch: public Algo {
     int n;
 public:
-    RandomSearch(int n_param) : n(n_param) { }
+    RandomSearch(int n_param) : n(n_param) {
+        name = "RandomSearch";
+    }
     
-    pair<vector<int>,int> solve(vector<vector<int>> distances, vector<int> costs) {
+    Result solve(vector<vector<int>> distances, vector<int> costs) {
         vector<int> bestSolution;
+        vector<int> worstSolution;
         int bestCost = INT32_MAX;
+        int averageCost = 0;
+        int worstCost = 0;
         int solution_size = distances.size()/2;
         vector<int> current_solution;
         for(int i=0; i<n; i++){
             //empty vector size solution_size
             current_solution = vector<int>(solution_size);
+            vector<int> visited(distances.size());
             //fill with random numbers
             for(int j=0; j<solution_size; j++){
-                current_solution[j] = rand() % distances.size();
+                int next = rand() % distances.size();
+                while(visited[next])next = rand() % distances.size();
+                current_solution[j] = next;
+                visited[next]=true;
             }
             int current_cost = calculate_cost(current_solution, distances, costs);
-            cout << current_cost << endl;
             if(current_cost < bestCost){
                 bestCost = current_cost;
                 bestSolution = current_solution;
             }
+            if(current_cost > worstCost){
+                worstCost = current_cost;
+                worstSolution = current_solution;
+            }
+            averageCost += current_cost;
+
         }
-        return make_pair(bestSolution, bestCost);
+        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
     }
 };
 
 
-class NearestNeighboursSearch: Algorithm {
+class NearestNeighboursSearch: public Algo {
 public:
-    pair<vector<int>,int> solve(vector<vector<int>> distances, vector<int> costs) {
+    NearestNeighboursSearch() {
+        name = "NearestNeighboursSearch";
+    }
+    Result solve(vector<vector<int>> distances, vector<int> costs) {
         vector<int> bestSolution;
+        vector<int> worstSolution;
         int bestCost = INT32_MAX;
+        int averageCost = 0;
+        int worstCost = 0;
         int solution_size = distances.size()/2;
         vector<int> current_solution;
         for(int i=0;i<distances.size();i++){
             current_solution.push_back(i);
             vector<bool> visited(costs.size());
+            visited[i] = true;
             while(current_solution.size() < solution_size){
                 int min_cost = INT32_MAX;
                 int min_index = -1;
@@ -88,15 +121,22 @@ public:
                 bestCost = current_cost;
                 bestSolution = current_solution;
             }
+            if(current_cost > worstCost){
+                worstCost = current_cost;
+                worstSolution = current_solution;
+            }
+            averageCost += current_cost;
             current_solution.clear();
         }
-        return make_pair(bestSolution, bestCost);
+        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
     }
 };
 
-class GreedyCycle: Algorithm {
+class GreedyCycle: public Algo {
 public:
-    
+    GreedyCycle() {
+        name = "GreedyCycle";
+    }
     void write_vector_to_file(vector<int> sol){
         string filename = "animation_greedy/" + to_string(sol.size()) + ".csv";
         ofstream file;
@@ -110,9 +150,9 @@ public:
 
 
 
-    pair<vector<int>,int> solve(vector<vector<int>> distances, vector<int> costs) {
+    Result solve(vector<vector<int>> distances, vector<int> costs) {
         vector<int> bestSolution;
-        
+        vector<int> worstSolution;
         int bestCost = INT32_MAX;
         int worstCost = 0;
         int averageCost = 0;
@@ -122,7 +162,6 @@ public:
         int starting_node;
 
         for(int i=0;i<distances.size();i++){
-            // cout << i << endl;
             current_solution.push_back(i);
             vector<bool> visited(costs.size());
             visited[i] = true;
@@ -169,6 +208,7 @@ public:
             }
             if(current_cost > worstCost){
                 worstCost = current_cost;
+                worstSolution = current_solution;
             }
             averageCost += current_cost;
             current_solution.clear();
@@ -177,11 +217,7 @@ public:
         for(int i=0; i<graph.size(); i++){
             write_vector_to_file(graph[i]);
         }
-        // cout << "Best starting node: " << starting_node << endl;
-        cout << "Best cost: " << bestCost << endl;
-        cout << "Worst cost: " << worstCost << endl;
-        cout << "Average cost: " << averageCost/distances.size() << endl;
-        return make_pair(bestSolution, bestCost);
+        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
     }
 };
 
@@ -224,82 +260,34 @@ vector<vector<int>> calcDistances(vector<vector<int>> data){
 
 int main(){
     // srand(static_cast<unsigned>(time(0)));
-    GreedyCycle algo;
-    // NearestNeighboursSearch algo2;
-    cout << "Greedy cycle: " << endl;
-    cout << "TSPA" << endl;
-    auto data = read_file("./TSPA.csv");
-    auto distances = calcDistances(data);
-    vector<int> costs;
-    for(int i=0; i< data.size(); i++){
-        costs.push_back(data[i][2]);
-    }
-    auto result = algo.solve(distances, costs);
-    cout << "Greedy cycle: " << endl;
-    cout << "Cost " << result.second << endl;
-    for(int i=0; i<result.first.size(); i++){
-        cout<<result.first[i]<<" ";
-    }
-    // auto result2 = algo2.solve(distances, costs);
+    vector<Algo*> algorithms;
+    algorithms.push_back(new RandomSearch(200));
+    algorithms.push_back(new GreedyCycle());
+    algorithms.push_back(new NearestNeighboursSearch());
 
-    cout << endl;
-    cout << "TSPB" << endl;
-    data = read_file("./TSPB.csv");
-    distances = calcDistances(data);
-    costs.clear();
-    for(int i=0; i< data.size(); i++){
-        costs.push_back(data[i][2]);
-    }
-    result = algo.solve(distances, costs);
-    cout << "Greedy cycle: " << endl;
-    cout << "Cost " << result.second << endl;
-    for(int i=0; i<result.first.size(); i++){
-        cout<<result.first[i]<<" ";
+    string files[] = {"./TSPA.csv", "./TSPB.csv", "./TSPC.csv", "./TSPD.csv"};
+
+    for(auto algo: algorithms){
+        cout<<"#Algorithm: "<< algo->name << endl;
+        for(string file: files){
+            cout<<"##File: "<< file << endl;
+            auto data = read_file("./TSPA.csv");
+            auto distances = calcDistances(data);
+            vector<int> costs;
+            for(int i=0; i< data.size(); i++){
+                costs.push_back(data[i][2]);
+            }
+            auto result = algo->solve(distances, costs);
+            cout << "Best cost: " << result.bestCost << endl;
+            cout << "Worst cost: " << result.worstCost << endl;
+            cout << "Average cost: " << result.averageCost << endl;
+            cout << "Best solution: " << endl;
+            for(int i=0; i<result.bestSolution.size(); i++){
+                cout<<result.bestSolution[i]<<" ";
+            }
+            cout<<endl;
+        }
     }
 
-    cout << endl;
-    cout << "TSPC" << endl;
-    data = read_file("./TSPC.csv");
-    distances = calcDistances(data);
-    costs.clear();
-    for(int i=0; i< data.size(); i++){
-        costs.push_back(data[i][2]);
+    return 0;
     }
-    result = algo.solve(distances, costs);
-    cout << "Greedy cycle: " << endl;
-    cout << "Cost " << result.second << endl;
-    for(int i=0; i<result.first.size(); i++){
-        cout<<result.first[i]<<" ";
-    }
-
-    cout << endl;
-    cout << "TSPD" << endl;
-    data = read_file("./TSPD.csv");
-    distances = calcDistances(data);
-    costs.clear();
-    for(int i=0; i< data.size(); i++){
-        costs.push_back(data[i][2]);
-    }
-    result = algo.solve(distances, costs);
-    cout << "Greedy cycle: " << endl;
-    cout << "Cost " << result.second << endl;
-    for(int i=0; i<result.first.size(); i++){
-        cout<<result.first[i]<<" ";
-    }
-
-
-
-    //print result
-    // cout << "Greedy cycle: " << endl;
-    // cout << "Cost " << result.second << endl;
-    // for(int i=0; i<result.first.size(); i++){
-    //     cout<<result.first[i]<<" ";
-    // }
-
-    // cout << endl;
-    // cout << "Nearest neighbours: " << endl;
-    // cout << "Cost " << result2.second << endl;
-    // for(int i=0; i<result2.first.size(); i++){
-    //     cout<<result2.first[i]<<" ";
-    // }
-}
