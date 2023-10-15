@@ -112,7 +112,10 @@ public:
 
     pair<vector<int>,int> solve(vector<vector<int>> distances, vector<int> costs) {
         vector<int> bestSolution;
+        
         int bestCost = INT32_MAX;
+        int worstCost = 0;
+        int averageCost = 0;
         int solution_size = distances.size()/2;
         vector<int> current_solution;
         vector<vector<int>> graph;
@@ -127,17 +130,16 @@ public:
 
 
             while(current_solution.size() < solution_size){
-                if(current_solution.size() == 2){
-                    current_solution.insert(current_solution.begin(), i);
-                    continue;
-                }
+                // if(current_solution.size() == 2){
+                //     current_solution.insert(current_solution.begin(), i);
+                //     continue;
+                // }
                 int smallest_increase = INT32_MAX;
                 int insert_index = -1;
                 int insert_node = -1;
 
 
                 for(int j=0; j<current_solution.size(); j++){  // Dla każdego nodea z cyklu
-                    // int nearest = FindNearestUnvisitedNode(current_solution[j], j, visited, distances, costs, current_solution);
                     int min_distance = INT32_MAX;
                     int min_index = -1;
                     for(int k=0; k<distances.size(); k++){ //znajdź najbliższy nieodwiedzony node
@@ -156,7 +158,7 @@ public:
                 } // koniec
                 current_solution.insert(current_solution.begin() + insert_index, insert_node);
                 visited[insert_node] = true; 
-                curr_graph.push_back(current_solution);
+                // curr_graph.push_back(current_solution);
             }
             int current_cost = calculate_cost(current_solution, distances, costs);
             if(current_cost < bestCost){
@@ -165,13 +167,20 @@ public:
                 graph = curr_graph;
                 starting_node = i;
             }
+            if(current_cost > worstCost){
+                worstCost = current_cost;
+            }
+            averageCost += current_cost;
             current_solution.clear();
         }
         // To save process of creating a graph
         for(int i=0; i<graph.size(); i++){
             write_vector_to_file(graph[i]);
         }
-        cout << "Best starting node: " << starting_node << endl;
+        // cout << "Best starting node: " << starting_node << endl;
+        cout << "Best cost: " << bestCost << endl;
+        cout << "Worst cost: " << worstCost << endl;
+        cout << "Average cost: " << averageCost/distances.size() << endl;
         return make_pair(bestSolution, bestCost);
     }
 };
@@ -212,36 +221,36 @@ vector<vector<int>> calcDistances(vector<vector<int>> data){
 }
 
 
-vector<vector<int>> calcDistancesplusCosts(vector<vector<int>> distances, vector<int> costs){
-    vector<vector<int>> distancesplusCosts;
-    for (int i = 0; i < distances.size(); i++){
-        vector<int> row;
-        for (int j = 0; j < distances.size(); j++){
-            row.push_back(distances[i][j] + costs[j]);
-        }
-        distancesplusCosts.push_back(row);
-    }
-    return distancesplusCosts;
-}
-
 
 int main(){
-    srand(static_cast<unsigned>(time(0)));
-    // auto data = read_file("./TSPA.csv");
-    // auto data = read_file("./TSPB.csv");
-    // auto data = read_file("./TSPC.csv");
-    auto data = read_file("./TSPD.csv");
-    auto distances = calcDistances(data);
+    // srand(static_cast<unsigned>(time(0)));
     GreedyCycle algo;
-    NearestNeighboursSearch algo2;
+    // NearestNeighboursSearch algo2;
+    cout << "Greedy cycle: " << endl;
+    cout << "TSPA" << endl;
+    auto data = read_file("./TSPA.csv");
+    auto distances = calcDistances(data);
     vector<int> costs;
     for(int i=0; i< data.size(); i++){
         costs.push_back(data[i][2]);
     }
     auto result = algo.solve(distances, costs);
-    auto result2 = algo2.solve(distances, costs);
+    cout << "Greedy cycle: " << endl;
+    cout << "Cost " << result.second << endl;
+    for(int i=0; i<result.first.size(); i++){
+        cout<<result.first[i]<<" ";
+    }
+    // auto result2 = algo2.solve(distances, costs);
 
-    //print result
+    cout << endl;
+    cout << "TSPB" << endl;
+    data = read_file("./TSPB.csv");
+    distances = calcDistances(data);
+    costs.clear();
+    for(int i=0; i< data.size(); i++){
+        costs.push_back(data[i][2]);
+    }
+    result = algo.solve(distances, costs);
     cout << "Greedy cycle: " << endl;
     cout << "Cost " << result.second << endl;
     for(int i=0; i<result.first.size(); i++){
@@ -249,9 +258,48 @@ int main(){
     }
 
     cout << endl;
-    cout << "Nearest neighbours: " << endl;
-    cout << "Cost " << result2.second << endl;
-    for(int i=0; i<result2.first.size(); i++){
-        cout<<result2.first[i]<<" ";
+    cout << "TSPC" << endl;
+    data = read_file("./TSPC.csv");
+    distances = calcDistances(data);
+    costs.clear();
+    for(int i=0; i< data.size(); i++){
+        costs.push_back(data[i][2]);
     }
+    result = algo.solve(distances, costs);
+    cout << "Greedy cycle: " << endl;
+    cout << "Cost " << result.second << endl;
+    for(int i=0; i<result.first.size(); i++){
+        cout<<result.first[i]<<" ";
+    }
+
+    cout << endl;
+    cout << "TSPD" << endl;
+    data = read_file("./TSPD.csv");
+    distances = calcDistances(data);
+    costs.clear();
+    for(int i=0; i< data.size(); i++){
+        costs.push_back(data[i][2]);
+    }
+    result = algo.solve(distances, costs);
+    cout << "Greedy cycle: " << endl;
+    cout << "Cost " << result.second << endl;
+    for(int i=0; i<result.first.size(); i++){
+        cout<<result.first[i]<<" ";
+    }
+
+
+
+    //print result
+    // cout << "Greedy cycle: " << endl;
+    // cout << "Cost " << result.second << endl;
+    // for(int i=0; i<result.first.size(); i++){
+    //     cout<<result.first[i]<<" ";
+    // }
+
+    // cout << endl;
+    // cout << "Nearest neighbours: " << endl;
+    // cout << "Cost " << result2.second << endl;
+    // for(int i=0; i<result2.first.size(); i++){
+    //     cout<<result2.first[i]<<" ";
+    // }
 }
