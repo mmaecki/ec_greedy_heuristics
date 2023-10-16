@@ -262,8 +262,8 @@ int main(){
     // srand(static_cast<unsigned>(time(0)));
     vector<Algo*> algorithms;
     algorithms.push_back(new RandomSearch(200));
-    algorithms.push_back(new GreedyCycle());
     algorithms.push_back(new NearestNeighboursSearch());
+    algorithms.push_back(new GreedyCycle());
 
     string files[] = {"./TSPA.csv", "./TSPB.csv", "./TSPC.csv", "./TSPD.csv"};
 
@@ -271,7 +271,7 @@ int main(){
         cout<<"#Algorithm: "<< algo->name << endl;
         for(string file: files){
             cout<<"##File: "<< file << endl;
-            auto data = read_file("./TSPA.csv");
+            auto data = read_file(file);
             auto distances = calcDistances(data);
             vector<int> costs;
             for(int i=0; i< data.size(); i++){
