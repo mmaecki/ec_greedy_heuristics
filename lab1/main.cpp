@@ -108,7 +108,7 @@ public:
                 int min_index = -1;
                 for(int j=0; j<distances.size(); j++){
                     if(visited[j]) continue;
-                    if(distances[current_solution[current_solution.size()-1]][j] < min_cost){
+                    if(distances[current_solution[current_solution.size()-1]][j] + costs[j] < min_cost){
                         min_cost = distances[current_solution[current_solution.size()-1]][j] + costs[j];
                         min_index = j;
                     }
