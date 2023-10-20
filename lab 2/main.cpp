@@ -93,19 +93,20 @@ public:
                     vector<int> insertion_cost_for_j;
                     for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
                         int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
+                        // int curr = -distances[current_solution[j]][current_solution[j == current_solution.size() - 1 ? 0 : j + 1]] + distances[current_solution[j]][k] + distances[k][current_solution[j == current_solution.size() - 1 ? 0 : j + 1]] + costs[k];
                         insertion_cost_for_j.push_back(curr);
                     }
                     int smallest_index = -1;
                     int smallest_value = INT32_MAX;
                     int second_smallest_value = INT32_MAX;
 
-                    for (int i = 0; i < insertion_cost_for_j.size(); i++) {
-                        if (insertion_cost_for_j[i] < smallest_value) {
+                    for (int h = 0; h < insertion_cost_for_j.size(); h++) {
+                        if (insertion_cost_for_j[h] < smallest_value) {
                             second_smallest_value = smallest_value;
-                            smallest_value = insertion_cost_for_j[i];
-                            smallest_index = i;
-                        } else if (insertion_cost_for_j[i] < second_smallest_value) {
-                            second_smallest_value = insertion_cost_for_j[i];
+                            smallest_value = insertion_cost_for_j[h];
+                            smallest_index = h+1;
+                        } else if (insertion_cost_for_j[h] < second_smallest_value) {
+                            second_smallest_value = insertion_cost_for_j[h];
                         }
                     }
                     int regret = second_smallest_value - smallest_value;
@@ -133,11 +134,13 @@ public:
                 worstSolution = current_solution;
             }
             averageCost += current_cost;
+            if(i == 47){
+                for (int a = 0; a < current_solution.size(); a++) {
+                    cout << current_solution[a] << " ";
+                }
+                cout << endl;
+            }
             current_solution.clear();
-        }
-        // To save process of creating a graph
-        for(int i=0; i<graph.size(); i++){
-            write_vector_to_file(graph[i]);
         }
         return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
     }
@@ -198,13 +201,13 @@ public:
                     int smallest_value = INT32_MAX;
                     int second_smallest_value = INT32_MAX;
 
-                    for (int i = 0; i < insertion_cost_for_j.size(); i++) {
-                        if (insertion_cost_for_j[i] < smallest_value) {
+                    for (int h = 0; h < insertion_cost_for_j.size(); h++) {
+                        if (insertion_cost_for_j[h] < smallest_value) {
                             second_smallest_value = smallest_value;
-                            smallest_value = insertion_cost_for_j[i];
-                            smallest_index = i;
-                        } else if (insertion_cost_for_j[i] < second_smallest_value) {
-                            second_smallest_value = insertion_cost_for_j[i];
+                            smallest_value = insertion_cost_for_j[h];
+                            smallest_index = h;
+                        } else if (insertion_cost_for_j[h] < second_smallest_value) {
+                            second_smallest_value = insertion_cost_for_j[h];
                         }
                     }
                     int regret = second_smallest_value - smallest_value;
@@ -234,11 +237,13 @@ public:
                 worstSolution = current_solution;
             }
             averageCost += current_cost;
+            if(i == 32){
+                for (int a = 0; a < current_solution.size(); a++) {
+                    cout << current_solution[a] << " ";
+                }
+                cout << endl;
+            }
             current_solution.clear();
-        }
-        // To save process of creating a graph
-        for(int i=0; i<graph.size(); i++){
-            write_vector_to_file(graph[i]);
         }
         return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
     }
@@ -320,7 +325,7 @@ int main(){
                 cout<<result.bestSolution[i]<<" ";
             }
             cout<<endl;
-            write_solution_to_file(result.bestSolution, algo->name, file.substr(file.size() - 8));
+            // write_solution_to_file(result.bestSolution, algo->name, file.substr(file.size() - 8));
         }
     }
     return 0;
