@@ -104,7 +104,7 @@ public:
                         if (insertion_cost_for_j[h] < smallest_value) {
                             second_smallest_value = smallest_value;
                             smallest_value = insertion_cost_for_j[h];
-                            smallest_index = h+1;
+                            smallest_index = h;
                         } else if (insertion_cost_for_j[h] < second_smallest_value) {
                             second_smallest_value = insertion_cost_for_j[h];
                         }
@@ -134,12 +134,6 @@ public:
                 worstSolution = current_solution;
             }
             averageCost += current_cost;
-            if(i == 47){
-                for (int a = 0; a < current_solution.size(); a++) {
-                    cout << current_solution[a] << " ";
-                }
-                cout << endl;
-            }
             current_solution.clear();
         }
         return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
@@ -237,12 +231,6 @@ public:
                 worstSolution = current_solution;
             }
             averageCost += current_cost;
-            if(i == 32){
-                for (int a = 0; a < current_solution.size(); a++) {
-                    cout << current_solution[a] << " ";
-                }
-                cout << endl;
-            }
             current_solution.clear();
         }
         return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
