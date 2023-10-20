@@ -144,6 +144,107 @@ public:
 };
 
 
+class Greedy2RegretWieghted: public Algo {
+public:
+    Greedy2RegretWieghted() {
+        name = "Greedy2RegretWeighted";
+    }
+    void write_vector_to_file(vector<int> sol){
+        string filename = "animation_greedy/" + to_string(sol.size()) + ".csv";
+        ofstream file;
+        file.open(filename);
+        for(int i=0; i<sol.size(); i++){
+            file << sol[i] << endl;
+        }
+        file.close();
+    }
+
+
+
+    Result solve(vector<vector<int>> distances, vector<int> costs) {
+        vector<int> bestSolution;
+        vector<int> worstSolution;
+        int bestCost = INT32_MAX;
+        int worstCost = 0;
+        int averageCost = 0;
+        int solution_size = distances.size()/2;
+        vector<int> current_solution;
+        vector<vector<int>> graph;
+        int starting_node;
+
+        for(int i=0;i<distances.size();i++){
+            current_solution.push_back(i);
+            vector<bool> visited(costs.size());
+            visited[i] = true;
+            vector<vector<int>> curr_graph;
+
+
+            while(current_solution.size() < solution_size){
+             
+                int smallest_increase = INT32_MAX;
+                int insert_index = -1;
+                int insert_node = -1;
+                int max_score = -INT32_MAX;
+
+
+                for(int k=0; k<distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
+                    if(visited[k]) continue;
+                    vector<int> insertion_cost_for_j;
+                    for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
+                        int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
+                        insertion_cost_for_j.push_back(curr);
+                    }
+                    int smallest_index = -1;
+                    int smallest_value = INT32_MAX;
+                    int second_smallest_value = INT32_MAX;
+
+                    for (int i = 0; i < insertion_cost_for_j.size(); i++) {
+                        if (insertion_cost_for_j[i] < smallest_value) {
+                            second_smallest_value = smallest_value;
+                            smallest_value = insertion_cost_for_j[i];
+                            smallest_index = i;
+                        } else if (insertion_cost_for_j[i] < second_smallest_value) {
+                            second_smallest_value = insertion_cost_for_j[i];
+                        }
+                    }
+                    int regret = second_smallest_value - smallest_value;
+                    int left_node_idx = smallest_index == 0 ? current_solution.size() -1 : smallest_index -1;
+                    int insertion_cost = - distances[current_solution[left_node_idx]][current_solution[smallest_index]] + distances[current_solution[left_node_idx]][k] + distances[k][current_solution[smallest_index]] + costs[k];
+                    int score = regret - insertion_cost;
+                    if(score> max_score){
+                        max_score = score;
+                        insert_index = smallest_index;
+                        insert_node = k;
+                    }
+                }
+
+                current_solution.insert(current_solution.begin() + insert_index, insert_node);
+                visited[insert_node] = true; 
+                // curr_graph.push_back(current_solution);
+            }
+            int current_cost = calculate_cost(current_solution, distances, costs);
+            if(current_cost < bestCost){
+                bestCost = current_cost;
+                bestSolution = current_solution;
+                graph = curr_graph;
+                starting_node = i;
+            }
+            if(current_cost > worstCost){
+                worstCost = current_cost;
+                worstSolution = current_solution;
+            }
+            averageCost += current_cost;
+            current_solution.clear();
+        }
+        // To save process of creating a graph
+        for(int i=0; i<graph.size(); i++){
+            write_vector_to_file(graph[i]);
+        }
+        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
+    }
+};
+
+
 
 vector<vector<int>> read_file(string filename) {
     vector<vector<int>> result;
@@ -179,11 +280,24 @@ vector<vector<int>> calcDistances(vector<vector<int>> data){
 }
 
 
+void write_solution_to_file(vector<int> sol, string algo_name, string data_name){
+        cout << "Writing to: " << algo_name + "_"+ data_name + ".csv" << endl;
+        string filename = "results/" + algo_name + "_"+ data_name + ".csv";
+        ofstream file;
+        file.open(filename);
+        for(int i=0; i<sol.size(); i++){
+            file << sol[i] << endl;
+        }
+        file.close();
+    }
+
+
 
 int main(){
     // srand(static_cast<unsigned>(time(0)));
     vector<Algo*> algorithms;
     algorithms.push_back(new Greedy2Regret());
+    algorithms.push_back(new Greedy2RegretWieghted());
 
     string files[] = {"../data/TSPA.csv", "../data/TSPB.csv", "../data/TSPC.csv", "../data/TSPD.csv"};
 
@@ -206,8 +320,8 @@ int main(){
                 cout<<result.bestSolution[i]<<" ";
             }
             cout<<endl;
+            write_solution_to_file(result.bestSolution, algo->name, file.substr(file.size() - 8));
         }
     }
-
     return 0;
-    }
+}
