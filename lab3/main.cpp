@@ -479,15 +479,15 @@ public:
         vector<pair<pair<int, int>, pair<int, int>>> moves;
         for (int i = 0; i < neighbour.size(); i++) {
             for (int j = i + 1; j < neighbour.size(); j++) {
-                if (i == j) continue;
+                if (i == j || j == i + 1) continue; // no need to swap edges that are next to each other - to be discussed
                 moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
             }
         }
         auto rng = std::default_random_engine {};
         std::shuffle(std::begin(moves), std::end(moves), rng);
-        
+
         for (const auto& [edge1, edge2] : moves) {
-            if (edge1.second >= 0 && edge2.first < neighbour.size() && edge1.second < edge2.first) {
+            if (edge1.second < edge2.second) {
             reverse(neighbour.begin() + edge1.second, neighbour.begin() + edge2.first + 1);
             co_yield neighbour;
             reverse(neighbour.begin() + edge1.second, neighbour.begin() + edge2.first + 1);
