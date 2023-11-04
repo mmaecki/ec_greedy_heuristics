@@ -277,53 +277,26 @@ public:
             nPoints = distances.size();
         }
 
-    int calculate_cost(vector<int> solution){
+    int calculate_cost(const vector<int>& solution){
         int cost = 0;
         for(int j=0; j<solution.size()-1; j++){
             cost += this->distances[solution[j]][solution[j+1]];
-        }
-        cost+=this->distances[solution[solution.size()-1]][solution[0]];
-        for(int j=0;j<solution.size();j++){
             cost+=this->costs[solution[j]];
         }
+        cost+=this->distances[solution[solution.size()-1]][solution[0]];
         return cost;
     }
 
     Result solve() {
         vector<int> solution = getInitialSolution(this->initialSolutionType, starting_node);
-        int solutionCost = calculate_cost(solution);
+        int solutionCost = this->calculate_cost(solution);
+        for(int i=0; i<visited.size(); i++){
+                visited[i] = false;
+        }
+        for(int i=0; i<solution.size(); i++){
+            visited[solution[i]] = true;
+        }
         while(true){
-            vector<int> newSolution = search(solution, solutionCost);
-            int newSolutionCost = calculate_cost(newSolution);
-            /////////////////////////////////////////////////////////////////////////////////////////
-            //caclulate number of unique numbers in solution
-            int unique = 0;
-            bool temp_visited[nPoints];
-            for(int i=0; i<nPoints; i++){
-                temp_visited[i] = false;
-            }
-            for(int i=0; i<newSolution.size(); i++){
-                if(!temp_visited[newSolution[i]]){
-                    unique++;
-                    temp_visited[newSolution[i]] = true;
-                }
-            }
-            if(unique != distances.size()/2){
-                cout << "Solution is not valid" << endl;
-                cout << "Solution cost: " << newSolutionCost << endl;
-                cout << "Solution size: " << newSolution.size() << endl;
-                cout << "Unique: " << unique << endl;
-                cout << "Solution: ";
-                for(int i=0; i<newSolution.size(); i++){
-                    cout << newSolution[i] << " ";
-                }
-                cout << endl;
-                throw "Solution is not valid";
-            }
-            /////////////////////////////////////////////////////////////////////////////////////////
-            if(newSolutionCost == solutionCost) break;
-            solution = newSolution;
-            solutionCost = newSolutionCost;
             //update visited
             for(int i=0; i<visited.size(); i++){
                 visited[i] = false;
@@ -331,6 +304,37 @@ public:
             for(int i=0; i<solution.size(); i++){
                 visited[solution[i]] = true;
             }
+            shared_ptr<vector<int>> newSolution = search(solution, solutionCost);
+            int newSolutionCost = calculate_cost(*newSolution);
+            /////////////////////////////////////////////////////////////////////////////////////////
+            //caclulate number of shared numbers in solution
+            int shared = 0;
+            bool temp_visited[nPoints];
+            for(int i=0; i<nPoints; i++){
+                temp_visited[i] = false;
+            }
+            for(int i=0; i<newSolution->size(); i++){
+                if(!temp_visited[(*newSolution)[i]]){
+                    shared++;
+                    temp_visited[(*newSolution)[i]] = true;
+                }
+            }
+            if(shared != distances.size()/2){
+                cout << "Solution is not valid" << endl;
+                cout << "Solution cost: " << newSolutionCost << endl;
+                cout << "Solution size: " << newSolution->size() << endl;
+                cout << "shared: " << shared << endl;
+                cout << "Solution: ";
+                for(int i=0; i<newSolution->size(); i++){
+                    cout << (*newSolution)[i] << " ";
+                }
+                cout << endl;
+                throw runtime_error("Solution is not valid");
+            }
+            /////////////////////////////////////////////////////////////////////////////////////////
+            if(newSolutionCost == solutionCost) break;
+            solution = *newSolution;
+            solutionCost = newSolutionCost;
         }
         return Result(solutionCost, solutionCost, solutionCost, solution, solution);
     }
@@ -344,6 +348,7 @@ public:
         {
             GreedyCycle gc = GreedyCycle(distances, costs, i);
             return gc.solve().bestSolution;
+
         }
         if (ist == G2Rw)
         {
@@ -352,30 +357,30 @@ public:
         }
     }
 
-    vector<int> search(vector<int> currentSolution, int currentSolutionCost){
+    shared_ptr<vector<int>> search(vector<int>& currentSolution, int currentSolutionCost){
         if(searchType == greedy) return greedySearch(currentSolution, currentSolutionCost);
         return steepestSearch(currentSolution, currentSolutionCost);
     }
-    vector<int> greedySearch(vector<int> currentSolution, int currentSolutionCost){
+    shared_ptr<vector<int>> greedySearch(vector<int>& currentSolution, int currentSolutionCost){
         auto neigbourhoodIterator = neighbourhoodGenerator(currentSolution);
         while(neigbourhoodIterator.move_next()){
             auto neighbour = neigbourhoodIterator.current_value();
-            int neighbourCost = calculate_cost(neighbour);
+            int neighbourCost = calculate_cost(*neighbour);
             if(neighbourCost < currentSolutionCost){
                 return neighbour;
             }
 
         }
-        return currentSolution;
+        return make_shared<vector<int>>(currentSolution);
     }
 
-    vector<int> steepestSearch(vector<int> currentSolution, int currentSolutionCost){
+    shared_ptr<vector<int>> steepestSearch(vector<int>& currentSolution, int currentSolutionCost){
         auto neigbourhoodIterator = neighbourhoodGenerator(currentSolution);
-        vector<int> bestNeighbour = currentSolution;
+        shared_ptr<vector<int>> bestNeighbour = make_shared<vector<int>>(currentSolution);
         int bestNeighbourCost = currentSolutionCost;
         while(neigbourhoodIterator.move_next()){
             auto neighbour = neigbourhoodIterator.current_value();
-            int neighbourCost = calculate_cost(neighbour);
+            int neighbourCost = calculate_cost(*neighbour);
             if(neighbourCost < bestNeighbourCost){
                 bestNeighbour = neighbour;
                 bestNeighbourCost = neighbourCost;
@@ -385,7 +390,7 @@ public:
         return bestNeighbour;
     }
 
-    generator<vector<int>> neighbourhoodGenerator(vector<int> currentSolution){
+    generator<shared_ptr<vector<int>>> neighbourhoodGenerator(vector<int>& currentSolution){
         vector<NeighbourhoodType> nTypeOrder = {intra, inter};
         shuffle(nTypeOrder.begin(), nTypeOrder.end(), default_random_engine(time(0)));
         for(auto nType: nTypeOrder){
@@ -404,9 +409,9 @@ public:
 
     }
 
-    generator<vector<int>> interNeighbourhoodGenerator(vector<int> currentSolution){
+    generator<shared_ptr<vector<int>>> interNeighbourhoodGenerator(vector<int>& currentSolution){
         // co_yield currentSolution;
-        vector<int> neighbour = currentSolution;//copy solution neighbour only once to save time copying memory
+        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
         vector<pair<int, int>> moves;
     
         for (int i = 0; i < currentSolution.size(); i++) {
@@ -420,20 +425,20 @@ public:
         std::shuffle(std::begin(moves), std::end(moves), rng);
 
         for (const auto& [i, j] : moves) {
-            auto tmp = neighbour[i];
-            neighbour[i] = j;
+            auto tmp = (*neighbour)[i];
+            (*neighbour)[i] = j;
             co_yield neighbour;
-            neighbour[i] = tmp; //reversing change to save time copying memory
+            (*neighbour)[i] = tmp; //reversing change to save time copying memory
         }
     }
 
-    generator<vector<int>> intraNeighbourhoodGenerator(vector<int> currentSolution){
+    generator<shared_ptr<vector<int>>> intraNeighbourhoodGenerator(vector<int>& currentSolution){
         if(intraNeighbourhoodType == twoNode) return intraNodesNeighbourhoodGenerator(currentSolution);
         return intraEdgesNeighbourhoodGenerator(currentSolution);
     }
 
-    generator<vector<int>> intraNodesNeighbourhoodGenerator(vector<int> currentSolution){  // TODO: do not generate same neighbour twice (swap 1-2 and 2-1)
-        vector<int> neighbour = currentSolution;//copy solution neighbour only once to save time copying memory
+    generator<shared_ptr<vector<int>>> intraNodesNeighbourhoodGenerator(vector<int>& currentSolution){
+        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
         vector<pair<int, int>> moves;
     
         for (int i = 0; i < currentSolution.size(); i++) {
@@ -445,20 +450,20 @@ public:
         std::shuffle(std::begin(moves), std::end(moves), rng);
 
         for (const auto& [i, j] : moves) {
-            auto tmp = neighbour[i];
-            neighbour[i] = neighbour[j];
-            neighbour[j] = tmp;
+            auto tmp = (*neighbour)[i];
+            (*neighbour)[i] = (*neighbour)[j];
+            (*neighbour)[j] = tmp;
             co_yield neighbour;
-            neighbour[j] = neighbour[i]; //reversing change to save time copying memory
-            neighbour[i] = tmp;
+            (*neighbour)[j] = (*neighbour)[i]; //reversing change to save time copying memory
+            (*neighbour)[i] = tmp;
         }
     }
     
-    generator<vector<int>> intraEdgesNeighbourhoodGenerator(vector<int> currentSolution){
-        vector<int> neighbour = currentSolution;//copy solution neighbour only once to save time copying memory
+    generator<shared_ptr<vector<int>>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
+        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
         vector<pair<pair<int, int>, pair<int, int>>> moves;
-        for (int i = 0; i < neighbour.size(); i++) {
-            for (int j = i + 2; j < neighbour.size(); j++) {
+        for (int i = 0; i < neighbour->size(); i++) {
+            for (int j = i + 2; j < neighbour->size(); j++) {
                 moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
             }
         }
@@ -466,13 +471,13 @@ public:
 
         for (const auto& [edge1, edge2] : moves) {
             if (edge1.second < edge2.second) {
-            reverse(neighbour.begin() + edge1.second, neighbour.begin() + edge2.first + 1);
+            reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
             co_yield neighbour;
-            reverse(neighbour.begin() + edge1.second, neighbour.begin() + edge2.first + 1);
+            reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
             // to save time copying memory
             }
-            else{
-                throw "Incorrect edge indices";
+            else if(edge2.second != 0){
+                throw runtime_error("Incorrect edge indices: "  + to_string(edge1.second) + " " + to_string(edge2.second));
             }
         }
     }
@@ -530,8 +535,7 @@ int main(){
     vector<ProblemInstance> problemInstances = {TSPA, TSPB, TSPC, TSPD};
     vector<SearchType> searchTypes = {greedy, steepest};
     vector<InitialSolutionType> initialSolutionTypes = {randomAlg, GC, G2Rw};
-    vector<InterNeighbourhoodType> interNeighbourhoodTypes = {twoNode, twoEdges};
-
+    vector<InterNeighbourhoodType> interNeighbourhoodTypes = {twoNode,twoEdges};
 
 
     for(auto problemInstance: problemInstances){
@@ -549,7 +553,7 @@ int main(){
                     double averageTime = 0;
                     for(int i=0; i<distances.size(); i++){
                         LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i);
-                        cout << "Solving: " << ls.get_name() << " " << i << endl;
+                        // cout << "Solving: " << ls.get_name() << " " << i << endl;
                         clock_t start, end;
                         start = clock();
                         vector<int> solution = ls.solve().bestSolution;
@@ -565,7 +569,8 @@ int main(){
                             algoResult.worstSolution = solution;
                         }
                         algoResult.averageCost += cost;
-                        cout << "Time taken: " << time_taken << endl;
+                        // cout << "Time taken: " << time_taken << endl;
+                        averageTime += time_taken;
                     }
                     algoResult.averageCost /= distances.size();
                     cout << "Best cost: " << algoResult.bestCost << endl;
@@ -573,8 +578,13 @@ int main(){
                     cout << "Average cost: " << algoResult.averageCost << endl;
                     averageTime /= distances.size();
                     cout << "Average time: " << averageTime << endl;
-                    // LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0);
-                    // write_solution_to_file(algoResult.bestSolution, ls.get_name(), ProblemInstanceStrings[problemInstance]);
+                    cout << "Best solution: ";
+                    for(int i=0; i<algoResult.bestSolution.size(); i++){
+                        cout << algoResult.bestSolution[i] << " ";
+                    }
+                    cout << endl;
+                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0);
+                    write_solution_to_file(algoResult.bestSolution, ls.get_name(), ProblemInstanceStrings[problemInstance]);
                 }
             }
         }
