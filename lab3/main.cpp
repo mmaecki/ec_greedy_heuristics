@@ -12,6 +12,7 @@
 #include <coroutine>
 #include <algorithm>
 #include <random>
+#include <cassert>
 
 using namespace std;
 
@@ -30,8 +31,13 @@ struct Result{
 
 class Algo {
 public:
-    std::string name;
-    virtual Result solve(int i) =0;
+    vector<vector<int>> distances;
+    vector<int> costs;
+    int starting_node;
+    string name;
+    Algo(vector<vector<int>> distances, vector<int> costs, int i, string name)
+        : distances(distances), costs(costs), starting_node(i), name(name) {}
+    virtual Result solve() =0;
     int calculate_cost(vector<int> solution, vector<vector<int>> distances, vector<int> costs){
         int cost = 0;
         for(int j=0; j<solution.size()-1; j++){
@@ -43,65 +49,49 @@ public:
         }
         return cost;
     }
+    string get_name(){
+        return this->name;
+    }
 };
 
-class RandomSearch: public Algo {
-    int n;
+class RandomSearch : public Algo {
 public:
-    RandomSearch(int n_param) : n(n_param) {
-        name = "RandomSearch";
-    }
+    RandomSearch(vector<vector<int>> distances, vector<int> costs, int i)
+        : Algo(distances, costs, i, "RandomSearch") {}
     
-    Result solve(vector<vector<int>> distances, vector<int> costs, int i) {
-        vector<int> bestSolution;
+    Result solve() {
         vector<int> worstSolution;
-        int bestCost = INT32_MAX;
-        int averageCost = 0;
-        int worstCost = 0;
-        int solution_size = distances.size()/2;
-        vector<int> current_solution;
-        //empty vector size solution_size
-        current_solution = vector<int>(solution_size);
-        vector<int> visited(distances.size());
-        //fill with random numbers
+        int solution_size = this->distances.size()/2;
+        vector<int> current_solution = vector<int>(solution_size);
+        vector<int> visited(this->distances.size());
+
         for(int j=0; j<solution_size; j++){
-            int next = rand() % distances.size();
-            while(visited[next])next = rand() % distances.size();
+            if (j==0){
+                current_solution[j] = this->starting_node;
+                visited[this->starting_node] = true;
+                continue;
+            }
+            int next = rand() % this->distances.size();
+            while(visited[next])next = rand() % this->distances.size();
             current_solution[j] = next;
             visited[next]=true;
-        }
-        int current_cost = calculate_cost(current_solution, distances, costs);
-        if(current_cost < bestCost){
-            bestCost = current_cost;
-            bestSolution = current_solution;
-        }
-        if(current_cost > worstCost){
-            worstCost = current_cost;
-            worstSolution = current_solution;
-        }
-        averageCost += current_cost;
-
-        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
+        }        
+        return Result(0, 0, 0, current_solution, worstSolution);
     }
 };
 
 class GreedyCycle: public Algo {
 public:
-    GreedyCycle() {
-        name = "GreedyCycle";
-    }
+    GreedyCycle(vector<vector<int>> distances, vector<int> costs, int i)
+        : Algo(distances, costs, i, "GreedyCycle") {}
 
-    Result solve(vector<vector<int>> distances, vector<int> costs, int i) {
-        vector<int> bestSolution;
+    Result solve() {
         vector<int> worstSolution;
-        int bestCost = INT32_MAX;
-        int worstCost = 0;
-        int averageCost = 0;
-        int solution_size = distances.size()/2;
+        int solution_size = this->distances.size()/2;
         vector<int> current_solution;
-        vector<bool> visited(costs.size());
-        current_solution.push_back(i);
-        visited[i] = true;
+        vector<bool> visited(this->costs.size());
+        current_solution.push_back(this->starting_node);
+        visited[this->starting_node] = true;
 
         while(current_solution.size() < solution_size){
             int smallest_increase = INT32_MAX;
@@ -112,9 +102,9 @@ public:
             for(int j=0; j<current_solution.size(); j++){  // Dla każdego nodea z cyklu
                 int min_distance = INT32_MAX;
                 int min_index = -1;
-                for(int k=0; k<distances.size(); k++){ //znajdź najbliższy nieodwiedzony node
+                for(int k=0; k<this->distances.size(); k++){ //znajdź najbliższy nieodwiedzony node
                     if(visited[k]) continue;
-                    int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
+                    int curr = -this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + this->distances[k][current_solution[j]] + this->costs[k];
                     if(curr < min_distance){
                         min_distance = curr;
                         min_index = k;
@@ -129,38 +119,23 @@ public:
             current_solution.insert(current_solution.begin() + insert_index, insert_node);
             visited[insert_node] = true; 
         }
-        int current_cost = calculate_cost(current_solution, distances, costs);
-        if(current_cost < bestCost){
-            bestCost = current_cost;
-            bestSolution = current_solution;
-        }
-        if(current_cost > worstCost){
-            worstCost = current_cost;
-            worstSolution = current_solution;
-        }
-        averageCost += current_cost;
-        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
+        return Result(0, 0, 0, current_solution, worstSolution);
     }
 };
 
 
 class Greedy2RegretWieghted: public Algo {
 public:
-    Greedy2RegretWieghted() {
-        name = "Greedy2RegretWeighted";
-    }
+    Greedy2RegretWieghted(vector<vector<int>> distances, vector<int> costs, int i)
+        : Algo(distances, costs, i, "Greedy2RegretWieghted") {}
 
-    Result solve(vector<vector<int>> distances, vector<int> costs, int i) {
-        vector<int> bestSolution;
+    Result solve() {
         vector<int> worstSolution;
-        int bestCost = INT32_MAX;
-        int worstCost = 0;
-        int averageCost = 0;
         int solution_size = distances.size()/2;
         vector<int> current_solution;
-        current_solution.push_back(i);
-        vector<bool> visited(costs.size());
-        visited[i] = true;
+        current_solution.push_back(this->starting_node);
+        vector<bool> visited(this->costs.size());
+        visited[this->starting_node] = true;
 
         while(current_solution.size() < solution_size){
             
@@ -170,11 +145,11 @@ public:
             int max_score = -INT32_MAX;
 
 
-            for(int k=0; k<distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
+            for(int k=0; k<this->distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
                 if(visited[k]) continue;
                 vector<int> insertion_cost_for_j;
                 for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
-                    int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
+                    int curr = -this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + this->distances[k][current_solution[j]] + this->costs[k];
                     insertion_cost_for_j.push_back(curr);
                 }
                 int smallest_index = -1;
@@ -192,7 +167,7 @@ public:
                 }
                 int regret = second_smallest_value - smallest_value;
                 int left_node_idx = smallest_index == 0 ? current_solution.size() -1 : smallest_index -1;
-                int insertion_cost = - distances[current_solution[left_node_idx]][current_solution[smallest_index]] + distances[current_solution[left_node_idx]][k] + distances[k][current_solution[smallest_index]] + costs[k];
+                int insertion_cost = - this->distances[current_solution[left_node_idx]][current_solution[smallest_index]] + this->distances[current_solution[left_node_idx]][k] + this->distances[k][current_solution[smallest_index]] + this->costs[k];
                 int score = regret - insertion_cost;
                 if(score> max_score){
                     max_score = score;
@@ -204,20 +179,10 @@ public:
             current_solution.insert(current_solution.begin() + insert_index, insert_node);
             visited[insert_node] = true; 
         }
-        int current_cost = calculate_cost(current_solution, distances, costs);
-        if(current_cost < bestCost){
-            bestCost = current_cost;
-            bestSolution = current_solution;
-        }
-        if(current_cost > worstCost){
-            worstCost = current_cost;
-            worstSolution = current_solution;
-        }
-        averageCost += current_cost;
-        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
+
+        return Result(0, 0, 0, current_solution, worstSolution);
     }
 };
-
 
 
 template <typename T>
@@ -249,12 +214,6 @@ private:
     handle_type coro;
 };
 
-
-generator<unsigned int> iota(unsigned int n = 0)
-{
-    while (n<20)
-        co_yield n++;
-}
 
 
 
@@ -300,29 +259,21 @@ std::map<ProblemInstance, InitialSolutionType> BestInitialForInstance = {
 };
 
 
-class LocalSearch {
+class LocalSearch: public Algo {
 public:
-    std::string name;
     SearchType searchType;
     InitialSolutionType initialSolutionType;
     InterNeighbourhoodType intraNeighbourhoodType;
-    vector<vector<int>> distances;
-    vector<int> costs;
     vector<bool> visited;
     int nPoints;
-    LocalSearch(SearchType st, InitialSolutionType ist, InterNeighbourhoodType nt, vector<vector<int>> d, vector<int> c) {
-        searchType = st;
-        initialSolutionType = ist;
-        intraNeighbourhoodType = nt;
-        name = "LocalSearch";
-        name += "_" + SearchTypeStrings[searchType];
-        name += "_" + InitialSolutionTypeStrings[initialSolutionType];
-        name += "_" + InterNeighbourhoodTypeStrings[intraNeighbourhoodType];
-        distances = d;
-        costs = c;
-        visited = vector<bool>(distances.size());
-        nPoints = distances.size();
-    }
+    LocalSearch(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i)
+        : Algo(distances, costs, i, "LocalSearch"), searchType(searchType), initialSolutionType(initialSolutionType), intraNeighbourhoodType(intraNeighbourhoodType) {
+            this->name += "_" + SearchTypeStrings[searchType];
+            this->name += "_" + InitialSolutionTypeStrings[initialSolutionType];
+            this->name += "_" + InterNeighbourhoodTypeStrings[intraNeighbourhoodType];
+            visited = vector<bool>(distances.size());
+            nPoints = distances.size();
+        }
 
     int calculate_cost(vector<int> solution){
         int cost = 0;
@@ -336,34 +287,68 @@ public:
         return cost;
     }
 
-    vector<int> solve(int i) {
-        vector<int> solution = getInitialSolution(this->initialSolutionType, i);
+    Result solve() {
+        vector<int> solution = getInitialSolution(this->initialSolutionType, starting_node);
         int solutionCost = calculate_cost(solution);
         while(true){
             vector<int> newSolution = search(solution, solutionCost);
             int newSolutionCost = calculate_cost(newSolution);
+            /////////////////////////////////////////////////////////////////////////////////////////
+            //caclulate number of unique numbers in solution
+            int unique = 0;
+            bool temp_visited[nPoints];
+            for(int i=0; i<nPoints; i++){
+                temp_visited[i] = false;
+            }
+            for(int i=0; i<newSolution.size(); i++){
+                if(!temp_visited[newSolution[i]]){
+                    unique++;
+                    temp_visited[newSolution[i]] = true;
+                }
+            }
+            // cout << newSolutionCost << " " << unique << endl;
+            //asssert unique equals half solution size
+            if(unique != distances.size()/2){
+                cout << "Solution is not valid" << endl;
+                cout << "Solution cost: " << newSolutionCost << endl;
+                cout << "Solution size: " << newSolution.size() << endl;
+                cout << "Unique: " << unique << endl;
+                cout << "Solution: ";
+                for(int i=0; i<newSolution.size(); i++){
+                    cout << newSolution[i] << " ";
+                }
+                cout << endl;
+                throw "Solution is not valid";
+            }
+            /////////////////////////////////////////////////////////////////////////////////////////
             if(newSolutionCost == solutionCost) break;
             solution = newSolution;
             solutionCost = newSolutionCost;
+            //update visited
+            for(int i=0; i<visited.size(); i++){
+                visited[i] = false;
+            }
+            for(int i=0; i<solution.size(); i++){
+                visited[solution[i]] = true;
+            }
         }
-
-        return solution;
+        return Result(solutionCost, solutionCost, solutionCost, solution, solution);
     }
 
     vector<int> getInitialSolution(InitialSolutionType ist, int i){
         if(ist == randomAlg){
-            RandomSearch rs = RandomSearch(1);
-            return rs.solve(this->distances, this->costs, i).bestSolution;
+            RandomSearch rs = RandomSearch(distances, costs, i);
+            return rs.solve().bestSolution;
         }
         if (ist == GC)
         {
-            GreedyCycle gc = GreedyCycle();
-            return gc.solve(this->distances, this->costs, i).bestSolution;
+            GreedyCycle gc = GreedyCycle(distances, costs, i);
+            return gc.solve().bestSolution;
         }
         if (ist == G2Rw)
         {
-            Greedy2RegretWieghted g2rw = Greedy2RegretWieghted();
-            return g2rw.solve(this->distances, this->costs, i).bestSolution;
+            Greedy2RegretWieghted g2rw = Greedy2RegretWieghted(distances, costs, i);
+            return g2rw.solve().bestSolution;
         }
     }
 
@@ -420,6 +405,7 @@ public:
     }
 
     generator<vector<int>> interNeighbourhoodGenerator(vector<int> currentSolution){
+        // co_yield currentSolution;
         vector<int> neighbour = currentSolution;//copy solution neighbour only once to save time copying memory
         vector<pair<int, int>> moves;
     
@@ -564,13 +550,13 @@ int main(){
             for(auto initialSolutionType: initialSolutionTypes){
                 for(auto interNeighbourhoodType: interNeighbourhoodTypes){
                     Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
-                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs);
                     double averageTime = 0;
                     for(int i=0; i<distances.size(); i++){
-                        //calc execution time
+                        LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i);
+                        cout << "Solving: " << ls.get_name() << " " << i << endl;
                         clock_t start, end;
                         start = clock();
-                        vector<int> solution = ls.solve(i);
+                        vector<int> solution = ls.solve().bestSolution;
                         end = clock();
                         double time_taken = double(end - start) / double(CLOCKS_PER_SEC);
                         int cost = ls.calculate_cost(solution);
@@ -583,6 +569,7 @@ int main(){
                             algoResult.worstSolution = solution;
                         }
                         algoResult.averageCost += cost;
+                        cout << "Time taken: " << time_taken << endl;
                     }
                     algoResult.averageCost /= distances.size();
                     cout << "Best cost: " << algoResult.bestCost << endl;
@@ -590,7 +577,8 @@ int main(){
                     cout << "Average cost: " << algoResult.averageCost << endl;
                     averageTime /= distances.size();
                     cout << "Average time: " << averageTime << endl;
-                    write_solution_to_file(algoResult.bestSolution, ls.name, ProblemInstanceStrings[problemInstance]);
+                    // LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0);
+                    // write_solution_to_file(algoResult.bestSolution, ls.get_name(), ProblemInstanceStrings[problemInstance]);
                 }
             }
         }
