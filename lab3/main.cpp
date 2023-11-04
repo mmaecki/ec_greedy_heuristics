@@ -478,8 +478,7 @@ public:
         vector<int> neighbour = currentSolution;//copy solution neighbour only once to save time copying memory
         vector<pair<pair<int, int>, pair<int, int>>> moves;
         for (int i = 0; i < neighbour.size(); i++) {
-            for (int j = i + 1; j < neighbour.size(); j++) {
-                if (i == j || j == i + 1) continue; // no need to swap edges that are next to each other - to be discussed
+            for (int j = i + 2; j < neighbour.size(); j++) {
                 moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
             }
         }
