@@ -17,7 +17,7 @@
 using namespace std;
 
 
-auto rng = std::default_random_engine {};
+auto rng = std::default_random_engine(869468469);
 
 struct Result{
     int bestCost;
@@ -382,7 +382,7 @@ public:
             auto neighbour = neigbourhoodIterator.current_value();
             int neighbourCost = calculate_cost(*neighbour);
             if(neighbourCost < bestNeighbourCost){
-                bestNeighbour = neighbour;
+                bestNeighbour = make_shared<vector<int>>(*neighbour);
                 bestNeighbourCost = neighbourCost;
             }
 
@@ -392,7 +392,7 @@ public:
 
     generator<shared_ptr<vector<int>>> neighbourhoodGenerator(vector<int>& currentSolution){
         vector<NeighbourhoodType> nTypeOrder = {intra, inter};
-        shuffle(nTypeOrder.begin(), nTypeOrder.end(), default_random_engine(time(0)));
+        shuffle(nTypeOrder.begin(), nTypeOrder.end(),rng);
         for(auto nType: nTypeOrder){
             if(nType == intra){
                 auto intraNeighbourhoodIterator = intraNeighbourhoodGenerator(currentSolution);
@@ -553,7 +553,6 @@ int main(){
                     double averageTime = 0;
                     for(int i=0; i<distances.size(); i++){
                         LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i);
-                        // cout << "Solving: " << ls.get_name() << " " << i << endl;
                         clock_t start, end;
                         start = clock();
                         vector<int> solution = ls.solve().bestSolution;
