@@ -217,7 +217,106 @@ private:
 };
 
 
+class Greedy2Regret: public Algo {
+    vector<vector<int>> distances;
+    vector<int> costs;
+    int starting_node;
+    string name;
+public:
+    Greedy2Regret(vector<vector<int>> distances, vector<int> costs, int i) 
+        : Algo(distances, costs, i, "Greedy2Regret"){}
 
+    void write_vector_to_file(vector<int> sol){
+        string filename = "animation_greedy/" + to_string(sol.size()) + ".csv";
+        ofstream file;
+        file.open(filename);
+        for(int i=0; i<sol.size(); i++){
+            file << sol[i] << endl;
+        }
+        file.close();
+    }
+    Result solve() {
+        vector<int> worstSolution;
+        int solution_size = distances.size()/2;
+        vector<int> current_solution;
+        current_solution.push_back(starting_node);
+        vector<bool> visited(costs.size());
+        visited[starting_node] = true;
+
+        while(current_solution.size() < solution_size){
+            
+            int smallest_increase = INT32_MAX;
+            int insert_index = -1;
+            int insert_node = -1;
+            int max_regret = -1;
+
+            for(int k=0; k<distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
+                if(visited[k]) continue;
+                vector<int> insertion_cost_for_j;
+                for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
+                    int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
+                    insertion_cost_for_j.push_back(curr);
+                }
+                int smallest_index = -1;
+                int smallest_value = INT32_MAX;
+                int second_smallest_value = INT32_MAX;
+
+                for (int h = 0; h < insertion_cost_for_j.size(); h++) {
+                    if (insertion_cost_for_j[h] < smallest_value) {
+                        second_smallest_value = smallest_value;
+                        smallest_value = insertion_cost_for_j[h];
+                        smallest_index = h;
+                    } else if (insertion_cost_for_j[h] < second_smallest_value) {
+                        second_smallest_value = insertion_cost_for_j[h];
+                    }
+                }
+                int regret = second_smallest_value - smallest_value;
+                if(regret > max_regret){
+                    max_regret = regret;
+                    insert_index = smallest_index;
+                    insert_node = k;
+                }
+            }
+            current_solution.insert(current_solution.begin() + insert_index, insert_node);
+            visited[insert_node] = true; 
+            }
+        
+        return Result(0, 0, 0, current_solution, worstSolution);
+    }
+};
+
+
+class NearestNeighboursSearch: public Algo {
+    vector<vector<int>> distances;
+    vector<int> costs;
+    int starting_node;
+public:
+    NearestNeighboursSearch(vector<vector<int>> distances, vector<int> costs, int i)
+        : Algo(distances, costs, i, "NearestNeighbours") {}
+    
+    Result solve(vector<vector<int>> distances, vector<int> costs) {
+        vector<int> worstSolution;
+        int solution_size = distances.size()/2;
+        vector<int> current_solution;
+        current_solution.push_back(starting_node);
+        vector<bool> visited(costs.size());
+        visited[starting_node] = true;
+        while(current_solution.size() < solution_size){
+            int min_cost = INT32_MAX;
+            int min_index = -1;
+            for(int j=0; j<distances.size(); j++){
+                if(visited[j]) continue;
+                if(distances[current_solution[current_solution.size()-1]][j] + costs[j] < min_cost){
+                    min_cost = distances[current_solution[current_solution.size()-1]][j] + costs[j];
+                    min_index = j;
+                }
+            }
+            visited[min_index] = true;
+            current_solution.push_back(min_index);
+        }    
+        return Result(0, 0, 0, current_solution, worstSolution);
+    }
+};
 
 enum SearchType { greedy, steepest };
 enum InitialSolutionType {randomAlg, GC, G2Rw};
