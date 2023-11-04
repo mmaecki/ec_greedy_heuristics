@@ -11,6 +11,7 @@
 #include <map>
 #include <coroutine>
 #include <algorithm>
+#include <random>
 
 using namespace std;
 
@@ -30,7 +31,7 @@ struct Result{
 class Algo {
 public:
     std::string name;
-    virtual Result solve(vector<vector<int>> distances, vector<int> costs) =0;
+    virtual Result solve(int i) =0;
     int calculate_cost(vector<int> solution, vector<vector<int>> distances, vector<int> costs){
         int cost = 0;
         for(int j=0; j<solution.size()-1; j++){
@@ -51,7 +52,7 @@ public:
         name = "RandomSearch";
     }
     
-    Result solve(vector<vector<int>> distances, vector<int> costs) {
+    Result solve(vector<vector<int>> distances, vector<int> costs, int i) {
         vector<int> bestSolution;
         vector<int> worstSolution;
         int bestCost = INT32_MAX;
@@ -59,29 +60,27 @@ public:
         int worstCost = 0;
         int solution_size = distances.size()/2;
         vector<int> current_solution;
-        for(int i=0; i<n; i++){
-            //empty vector size solution_size
-            current_solution = vector<int>(solution_size);
-            vector<int> visited(distances.size());
-            //fill with random numbers
-            for(int j=0; j<solution_size; j++){
-                int next = rand() % distances.size();
-                while(visited[next])next = rand() % distances.size();
-                current_solution[j] = next;
-                visited[next]=true;
-            }
-            int current_cost = calculate_cost(current_solution, distances, costs);
-            if(current_cost < bestCost){
-                bestCost = current_cost;
-                bestSolution = current_solution;
-            }
-            if(current_cost > worstCost){
-                worstCost = current_cost;
-                worstSolution = current_solution;
-            }
-            averageCost += current_cost;
-
+        //empty vector size solution_size
+        current_solution = vector<int>(solution_size);
+        vector<int> visited(distances.size());
+        //fill with random numbers
+        for(int j=0; j<solution_size; j++){
+            int next = rand() % distances.size();
+            while(visited[next])next = rand() % distances.size();
+            current_solution[j] = next;
+            visited[next]=true;
         }
+        int current_cost = calculate_cost(current_solution, distances, costs);
+        if(current_cost < bestCost){
+            bestCost = current_cost;
+            bestSolution = current_solution;
+        }
+        if(current_cost > worstCost){
+            worstCost = current_cost;
+            worstSolution = current_solution;
+        }
+        averageCost += current_cost;
+
         return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
     }
 };
@@ -91,9 +90,6 @@ public:
     GreedyCycle() {
         name = "GreedyCycle";
     }
-
-
-
 
     Result solve(vector<vector<int>> distances, vector<int> costs, int i) {
         vector<int> bestSolution;
@@ -262,10 +258,8 @@ generator<unsigned int> iota(unsigned int n = 0)
 
 
 
-
-
 enum SearchType { greedy, steepest };
-enum InitialSolutionType {random, GC, G2Rw};
+enum InitialSolutionType {randomAlg, GC, G2Rw};
 enum NeighbourhoodType {intra, inter};
 enum InterNeighbourhoodType {twoNode, twoEdges};
 enum ProblemInstance {TSPA, TSPB, TSPC, TSPD};
@@ -276,7 +270,7 @@ std::map<SearchType, std::string> SearchTypeStrings = {
 };
 
 std::map<InitialSolutionType, std::string> InitialSolutionTypeStrings = {
-    {random, "random"},
+    {randomAlg, "random"},
     {GC, "GreedyCycle"},
     {G2Rw, "Greedy2RegretWeighted"}
 };
@@ -289,6 +283,13 @@ std::map<NeighbourhoodType, std::string> NeighbourhoodTypeStrings = {
 std::map<InterNeighbourhoodType, std::string> InterNeighbourhoodTypeStrings = {
     {twoNode, "twoNode"},
     {twoEdges, "twoEdges"}
+};
+
+std::map<ProblemInstance, std::string> ProblemInstanceStrings = {
+    {TSPA, "TSPA"},
+    {TSPB, "TSPB"},
+    {TSPC, "TSPC"},
+    {TSPD, "TSPD"}
 };
 
 std::map<ProblemInstance, InitialSolutionType> BestInitialForInstance = {
@@ -335,12 +336,8 @@ public:
         return cost;
     }
 
-    // Result solve() {
-    //     return
-    // }
-
-    vector<int> subSolve() {
-        vector<int> solution = getInitialSolution(this->initialSolutionType);
+    vector<int> solve(int i) {
+        vector<int> solution = getInitialSolution(this->initialSolutionType, i);
         int solutionCost = calculate_cost(solution);
         while(true){
             vector<int> newSolution = search(solution, solutionCost);
@@ -353,20 +350,20 @@ public:
         return solution;
     }
 
-    vector<int> getInitialSolution(InitialSolutionType ist){
-        if(ist == random){
+    vector<int> getInitialSolution(InitialSolutionType ist, int i){
+        if(ist == randomAlg){
             RandomSearch rs = RandomSearch(1);
-            return rs.solve(this->distances, this->costs).bestSolution;
+            return rs.solve(this->distances, this->costs, i).bestSolution;
         }
         if (ist == GC)
         {
             GreedyCycle gc = GreedyCycle();
-            return gc.solve(this->distances, this->costs).bestSolution;
+            return gc.solve(this->distances, this->costs, i).bestSolution;
         }
         if (ist == G2Rw)
         {
             Greedy2RegretWieghted g2rw = Greedy2RegretWieghted();
-            return g2rw.solve(this->distances, this->costs).bestSolution;
+            return g2rw.solve(this->distances, this->costs, i).bestSolution;
         }
     }
 
@@ -404,7 +401,7 @@ public:
     }
 
     generator<vector<int>> neighbourhoodGenerator(vector<int> currentSolution){
-        vector<NeighbourhoodType> nTypeOrder = {intray, inter};
+        vector<NeighbourhoodType> nTypeOrder = {intra, inter};
         shuffle(nTypeOrder.begin(), nTypeOrder.end(), default_random_engine(time(0)));
         for(auto nType: nTypeOrder){
             if(nType == intra){
@@ -545,36 +542,59 @@ void write_solution_to_file(vector<int> sol, string algo_name, string data_name)
     }
 
 
-
 int main(){
-    // srand(static_cast<unsigned>(time(0)));
-    vector<Algo*> algorithms;
-    algorithms.push_back(new Greedy2Regret());
-    algorithms.push_back(new Greedy2RegretWieghted());
 
-    string files[] = {"../data/TSPA.csv", "../data/TSPB.csv", "../data/TSPC.csv", "../data/TSPD.csv"};
+    string root_path = "../data/";
+    vector<ProblemInstance> problemInstances = {TSPA, TSPB, TSPC, TSPD};
+    vector<SearchType> searchTypes = {greedy, steepest};
+    vector<InitialSolutionType> initialSolutionTypes = {randomAlg, GC, G2Rw};
+    vector<InterNeighbourhoodType> interNeighbourhoodTypes = {twoNode, twoEdges};
 
-    for(auto algo: algorithms){
-        cout<<"#Algorithm: "<< algo->name << endl;
-        for(string file: files){
-            cout<<"##File: "<< file << endl;
-            auto data = read_file(file);
-            auto distances = calcDistances(data);
-            vector<int> costs;
-            for(int i=0; i< data.size(); i++){
-                costs.push_back(data[i][2]);
-            }
-            auto result = algo->solve(distances, costs);
-            cout << "Best cost: " << result.bestCost << endl;
-            cout << "Worst cost: " << result.worstCost << endl;
-            cout << "Average cost: " << result.averageCost << endl;
-            cout << "Best solution: " << endl;
-            for(int i=0; i<result.bestSolution.size(); i++){
-                cout<<result.bestSolution[i]<<" ";
-            }
-            cout<<endl;
-            // write_solution_to_file(result.bestSolution, algo->name, file.substr(file.size() - 8));
+
+
+    for(auto problemInstance: problemInstances){
+        string file = root_path + ProblemInstanceStrings[problemInstance] + ".csv";
+        auto data = read_file(file);
+        auto distances = calcDistances(data);
+        vector<int> costs;
+        for(int i=0; i< data.size(); i++){
+            costs.push_back(data[i][2]);
         }
+        for(auto searchType: searchTypes){
+            for(auto initialSolutionType: initialSolutionTypes){
+                for(auto interNeighbourhoodType: interNeighbourhoodTypes){
+                    Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
+                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs);
+                    double averageTime = 0;
+                    for(int i=0; i<distances.size(); i++){
+                        //calc execution time
+                        clock_t start, end;
+                        start = clock();
+                        vector<int> solution = ls.solve(i);
+                        end = clock();
+                        double time_taken = double(end - start) / double(CLOCKS_PER_SEC);
+                        int cost = ls.calculate_cost(solution);
+                        if(cost < algoResult.bestCost){
+                            algoResult.bestCost = cost;
+                            algoResult.bestSolution = solution;
+                        }
+                        if(cost > algoResult.worstCost){
+                            algoResult.worstCost = cost;
+                            algoResult.worstSolution = solution;
+                        }
+                        algoResult.averageCost += cost;
+                    }
+                    algoResult.averageCost /= distances.size();
+                    cout << "Best cost: " << algoResult.bestCost << endl;
+                    cout << "Worst cost: " << algoResult.worstCost << endl;
+                    cout << "Average cost: " << algoResult.averageCost << endl;
+                    averageTime /= distances.size();
+                    cout << "Average time: " << averageTime << endl;
+                    write_solution_to_file(algoResult.bestSolution, ls.name, ProblemInstanceStrings[problemInstance]);
+                }
+            }
+        }
+
     }
-    return 0;
+
 }
