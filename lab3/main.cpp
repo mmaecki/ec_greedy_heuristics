@@ -17,6 +17,8 @@
 using namespace std;
 
 
+auto rng = std::default_random_engine {};
+
 struct Result{
     int bestCost;
     int worstCost;
@@ -306,8 +308,6 @@ public:
                     temp_visited[newSolution[i]] = true;
                 }
             }
-            // cout << newSolutionCost << " " << unique << endl;
-            //asssert unique equals half solution size
             if(unique != distances.size()/2){
                 cout << "Solution is not valid" << endl;
                 cout << "Solution cost: " << newSolutionCost << endl;
@@ -417,7 +417,6 @@ public:
             }
         }
 
-        auto rng = std::default_random_engine {};
         std::shuffle(std::begin(moves), std::end(moves), rng);
 
         for (const auto& [i, j] : moves) {
@@ -438,13 +437,11 @@ public:
         vector<pair<int, int>> moves;
     
         for (int i = 0; i < currentSolution.size(); i++) {
-            for(int j=0; j < currentSolution.size(); j++){
-                if (i == j) continue;
+            for(int j=i+1; j < currentSolution.size(); j++){
                 moves.push_back({i, j});
             }
         }
 
-        auto rng = std::default_random_engine {};
         std::shuffle(std::begin(moves), std::end(moves), rng);
 
         for (const auto& [i, j] : moves) {
@@ -465,7 +462,6 @@ public:
                 moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
             }
         }
-        auto rng = std::default_random_engine {};
         std::shuffle(std::begin(moves), std::end(moves), rng);
 
         for (const auto& [edge1, edge2] : moves) {
