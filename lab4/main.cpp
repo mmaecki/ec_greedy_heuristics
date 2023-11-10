@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <random>
 #include <cassert>
+#include <typeinfo>
 
 using namespace std;
 
@@ -439,6 +440,7 @@ public:
             /////////////////////////////////////////////////////////////////////////////////////////
             if(newSolutionCost == solutionCost) break;
             solution = *newSolution;
+
             solutionCost = newSolutionCost;
         }
         return Result(solutionCost, solutionCost, solutionCost, solution, solution);
@@ -471,20 +473,21 @@ public:
         shared_ptr<vector<int>> bestNeighbour = make_shared<vector<int>>(currentSolution);
         int bestDelta = INT32_MAX;
         int delta;
-        vector<int> neighbour;
         while(neigbourhoodIterator.move_next()){
-            delta = neigbourhoodIterator.current_value()->second;
-            neighbour = neigbourhoodIterator.current_value()->first;
-            // cout << "delta: " << delta << "      bestDelta: " << bestDelta << endl;
+            delta = neigbourhoodIterator.current_value().second;
+            auto neighbour = neigbourhoodIterator.current_value().first;
             if(delta < bestDelta){
                 bestNeighbour = make_shared<vector<int>>(neighbour);
                 bestDelta = delta;
             }
         }
+        cout << "best delta: " << bestDelta << endl;
+        cout << "neighbour returned" << endl;
+        // cout << typeid(bestNeighbour).name() << endl;
         return bestNeighbour;
     }
 
-    generator<shared_ptr<pair<vector<int>, int>>> neighbourhoodGenerator(vector<int>& currentSolution){
+    generator<pair<shared_ptr<vector<int>>, int>> neighbourhoodGenerator(vector<int>& currentSolution){
         vector<NeighbourhoodType> nTypeOrder = {intra, inter};
         shuffle(nTypeOrder.begin(), nTypeOrder.end(),rng);
         for(auto nType: nTypeOrder){
@@ -503,10 +506,10 @@ public:
 
     }
 
-    generator<shared_ptr<pair<vector<int>, int>>> interNeighbourhoodGenerator(vector<int>& currentSolution){
-        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
+    generator<pair<shared_ptr<vector<int>>, int>> interNeighbourhoodGenerator(vector<int>& currentSolution){
         vector<pair<int, int>> moves;
-    
+        pair<shared_ptr<vector<int>>, int> returnPair;
+        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
         for (int i = 0; i < currentSolution.size(); i++) {
             for (int j = 0; j < costs.size(); j++) {
                 if (!visited[j]) {
@@ -519,20 +522,24 @@ public:
         int delta;
         for (const auto& [i, j] : moves) {
             auto tmp = (*neighbour)[i];
+            delta = distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][j] + costs[j] + distances[j][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]] - distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]];
             (*neighbour)[i] = j;
-            delta = distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][(*neighbour)[i]] + costs[(*neighbour)[i]] + distances[(*neighbour)[i]][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]] - distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]];
-            // co_yield make_pair(neighbour, delta);
-            co_yield make_shared<pair<vector<int>, int>>(*neighbour, delta);
+            returnPair.first = neighbour;
+            returnPair.second = delta;
+            co_yield returnPair;
+            // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
+            // co_yield pair<shared_ptr<vector<int>>, int>(neighbour, delta);
             (*neighbour)[i] = tmp; //reversing change to save time copying memory
         }
     }
 
-    generator<shared_ptr<pair<vector<int>, int>>> intraNeighbourhoodGenerator(vector<int>& currentSolution){
+    generator<pair<shared_ptr<vector<int>>, int>> intraNeighbourhoodGenerator(vector<int>& currentSolution){
         return intraEdgesNeighbourhoodGenerator(currentSolution);
     }
 
-    generator<shared_ptr<pair<vector<int>, int>>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
+    generator<pair<shared_ptr<vector<int>>, int>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
         shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
+        pair<shared_ptr<vector<int>>, int> returnPair;
         vector<pair<pair<int, int>, pair<int, int>>> moves;
         for (int i = 0; i < neighbour->size(); i++) {
             for (int j = i + 2; j < neighbour->size(); j++) {
@@ -545,8 +552,10 @@ public:
             if (edge1.second < edge2.second) {
                 reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
                 delta = distances[edge1.second][edge2.first] + distances[edge1.first][edge2.second] - distances[edge1.first][edge1.second] - distances[edge2.first][edge2.second];
-                // co_yield {neighbour, delta};
-                co_yield make_shared<pair<vector<int>, int>>(*neighbour, delta);
+                returnPair.first = neighbour;
+                returnPair.second = delta;
+                co_yield returnPair;
+                // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
                 reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
                 // to save time copying memory
             }
