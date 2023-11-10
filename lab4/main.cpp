@@ -83,111 +83,6 @@ public:
     }
 };
 
-class GreedyCycle: public Algo {
-public:
-    GreedyCycle(vector<vector<int>> distances, vector<int> costs, int i)
-        : Algo(distances, costs, i, "GreedyCycle") {}
-
-    Result solve() {
-        vector<int> worstSolution;
-        int solution_size = this->distances.size()/2;
-        vector<int> current_solution;
-        vector<bool> visited(this->costs.size());
-        current_solution.push_back(this->starting_node);
-        visited[this->starting_node] = true;
-
-        while(current_solution.size() < solution_size){
-            int smallest_increase = INT32_MAX;
-            int insert_index = -1;
-            int insert_node = -1;
-
-
-            for(int j=0; j<current_solution.size(); j++){  // Dla każdego nodea z cyklu
-                int min_distance = INT32_MAX;
-                int min_index = -1;
-                for(int k=0; k<this->distances.size(); k++){ //znajdź najbliższy nieodwiedzony node
-                    if(visited[k]) continue;
-                    int curr = -this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + this->distances[k][current_solution[j]] + this->costs[k];
-                    if(curr < min_distance){
-                        min_distance = curr;
-                        min_index = k;
-                    }
-                }
-                if(min_distance < smallest_increase){
-                    smallest_increase = min_distance;
-                    insert_index = j;
-                    insert_node = min_index;
-                }
-            } // koniec
-            current_solution.insert(current_solution.begin() + insert_index, insert_node);
-            visited[insert_node] = true; 
-        }
-        return Result(0, 0, 0, current_solution, worstSolution);
-    }
-};
-
-
-class Greedy2RegretWieghted: public Algo {
-public:
-    Greedy2RegretWieghted(vector<vector<int>> distances, vector<int> costs, int i)
-        : Algo(distances, costs, i, "Greedy2RegretWieghted") {}
-
-    Result solve() {
-        vector<int> worstSolution;
-        int solution_size = distances.size()/2;
-        vector<int> current_solution;
-        current_solution.push_back(this->starting_node);
-        vector<bool> visited(this->costs.size());
-        visited[this->starting_node] = true;
-
-        while(current_solution.size() < solution_size){
-            
-            int smallest_increase = INT32_MAX;
-            int insert_index = -1;
-            int insert_node = -1;
-            int max_score = -INT32_MAX;
-
-
-            for(int k=0; k<this->distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
-                if(visited[k]) continue;
-                vector<int> insertion_cost_for_j;
-                for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
-                    int curr = -this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + this->distances[k][current_solution[j]] + this->costs[k];
-                    insertion_cost_for_j.push_back(curr);
-                }
-                int smallest_index = -1;
-                int smallest_value = INT32_MAX;
-                int second_smallest_value = INT32_MAX;
-
-                for (int h = 0; h < insertion_cost_for_j.size(); h++) {
-                    if (insertion_cost_for_j[h] < smallest_value) {
-                        second_smallest_value = smallest_value;
-                        smallest_value = insertion_cost_for_j[h];
-                        smallest_index = h;
-                    } else if (insertion_cost_for_j[h] < second_smallest_value) {
-                        second_smallest_value = insertion_cost_for_j[h];
-                    }
-                }
-                int regret = second_smallest_value - smallest_value;
-                int left_node_idx = smallest_index == 0 ? current_solution.size() -1 : smallest_index -1;
-                int insertion_cost = - this->distances[current_solution[left_node_idx]][current_solution[smallest_index]] + this->distances[current_solution[left_node_idx]][k] + this->distances[k][current_solution[smallest_index]] + this->costs[k];
-                int score = regret - insertion_cost;
-                if(score> max_score){
-                    max_score = score;
-                    insert_index = smallest_index;
-                    insert_node = k;
-                }
-            }
-
-            current_solution.insert(current_solution.begin() + insert_index, insert_node);
-            visited[insert_node] = true; 
-        }
-
-        return Result(0, 0, 0, current_solution, worstSolution);
-    }
-};
-
-
 template <typename T>
 struct generator {
     struct promise_type;
@@ -217,108 +112,6 @@ private:
     handle_type coro;
 };
 
-
-class Greedy2Regret: public Algo {
-    vector<vector<int>> distances;
-    vector<int> costs;
-    int starting_node;
-    string name;
-public:
-    Greedy2Regret(vector<vector<int>> distances, vector<int> costs, int i) 
-        : Algo(distances, costs, i, "Greedy2Regret"){}
-
-    void write_vector_to_file(vector<int> sol){
-        string filename = "animation_greedy/" + to_string(sol.size()) + ".csv";
-        ofstream file;
-        file.open(filename);
-        for(int i=0; i<sol.size(); i++){
-            file << sol[i] << endl;
-        }
-        file.close();
-    }
-    Result solve() {
-        vector<int> worstSolution;
-        int solution_size = distances.size()/2;
-        vector<int> current_solution;
-        current_solution.push_back(starting_node);
-        vector<bool> visited(costs.size());
-        visited[starting_node] = true;
-
-        while(current_solution.size() < solution_size){
-            
-            int smallest_increase = INT32_MAX;
-            int insert_index = -1;
-            int insert_node = -1;
-            int max_regret = -1;
-
-            for(int k=0; k<distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
-                if(visited[k]) continue;
-                vector<int> insertion_cost_for_j;
-                for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
-                    int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
-                    insertion_cost_for_j.push_back(curr);
-                }
-                int smallest_index = -1;
-                int smallest_value = INT32_MAX;
-                int second_smallest_value = INT32_MAX;
-
-                for (int h = 0; h < insertion_cost_for_j.size(); h++) {
-                    if (insertion_cost_for_j[h] < smallest_value) {
-                        second_smallest_value = smallest_value;
-                        smallest_value = insertion_cost_for_j[h];
-                        smallest_index = h;
-                    } else if (insertion_cost_for_j[h] < second_smallest_value) {
-                        second_smallest_value = insertion_cost_for_j[h];
-                    }
-                }
-                int regret = second_smallest_value - smallest_value;
-                if(regret > max_regret){
-                    max_regret = regret;
-                    insert_index = smallest_index;
-                    insert_node = k;
-                }
-            }
-            current_solution.insert(current_solution.begin() + insert_index, insert_node);
-            visited[insert_node] = true; 
-            }
-        
-        return Result(0, 0, 0, current_solution, worstSolution);
-    }
-};
-
-
-class NearestNeighboursSearch: public Algo {
-    vector<vector<int>> distances;
-    vector<int> costs;
-    int starting_node;
-public:
-    NearestNeighboursSearch(vector<vector<int>> distances, vector<int> costs, int i)
-        : Algo(distances, costs, i, "NearestNeighbours") {}
-    
-    Result solve(vector<vector<int>> distances, vector<int> costs) {
-        vector<int> worstSolution;
-        int solution_size = distances.size()/2;
-        vector<int> current_solution;
-        current_solution.push_back(starting_node);
-        vector<bool> visited(costs.size());
-        visited[starting_node] = true;
-        while(current_solution.size() < solution_size){
-            int min_cost = INT32_MAX;
-            int min_index = -1;
-            for(int j=0; j<distances.size(); j++){
-                if(visited[j]) continue;
-                if(distances[current_solution[current_solution.size()-1]][j] + costs[j] < min_cost){
-                    min_cost = distances[current_solution[current_solution.size()-1]][j] + costs[j];
-                    min_index = j;
-                }
-            }
-            visited[min_index] = true;
-            current_solution.push_back(min_index);
-        }    
-        return Result(0, 0, 0, current_solution, worstSolution);
-    }
-};
-
 enum SearchType { greedy, steepest };
 enum InitialSolutionType {randomAlg, GC, G2Rw};
 enum NeighbourhoodType {intra, inter};
@@ -332,8 +125,6 @@ std::map<SearchType, std::string> SearchTypeStrings = {
 
 std::map<InitialSolutionType, std::string> InitialSolutionTypeStrings = {
     {randomAlg, "random"},
-    {GC, "GreedyCycle"},
-    {G2Rw, "Greedy2RegretWeighted"}
 };
 
 std::map<NeighbourhoodType, std::string> NeighbourhoodTypeStrings = {
@@ -407,10 +198,10 @@ public:
             
             shared_ptr<vector<int>> newSolution = search(solution, solutionCost);
             int newSolutionCost = calculate_cost(*newSolution);
-            // for (int i = 0; i < newSolution->size(); i++) {
-            //     cout << (*newSolution)[i] << " ";
-            // }
-            // cout << endl;
+            for (int i = 0; i < newSolution->size(); i++) {
+                cout << (*newSolution)[i] << " ";
+            }
+            cout << endl;
             // cout << "new solution cost: " << newSolutionCost << endl;
             /////////////////////////////////////////////////////////////////////////////////////////
             //caclulate number of shared numbers in solution
@@ -451,17 +242,17 @@ public:
             RandomSearch rs = RandomSearch(distances, costs, i);
             return rs.solve().bestSolution;
         }
-        if (ist == GC)
-        {
-            GreedyCycle gc = GreedyCycle(distances, costs, i);
-            return gc.solve().bestSolution;
+        // if (ist == GC)
+        // {
+        //     GreedyCycle gc = GreedyCycle(distances, costs, i);
+        //     return gc.solve().bestSolution;
 
-        }
-        if (ist == G2Rw)
-        {
-            Greedy2RegretWieghted g2rw = Greedy2RegretWieghted(distances, costs, i);
-            return g2rw.solve().bestSolution;
-        }
+        // }
+        // if (ist == G2Rw)
+        // {
+        //     Greedy2RegretWieghted g2rw = Greedy2RegretWieghted(distances, costs, i);
+        //     return g2rw.solve().bestSolution;
+        // }
     }
 
     shared_ptr<vector<int>> search(vector<int>& currentSolution, int currentSolutionCost){
@@ -470,24 +261,53 @@ public:
 
     shared_ptr<vector<int>> steepestSearch(vector<int>& currentSolution, int currentSolutionCost){
         auto neigbourhoodIterator = neighbourhoodGenerator(currentSolution);
-        shared_ptr<vector<int>> bestNeighbour = make_shared<vector<int>>(currentSolution);
         int bestDelta = INT32_MAX;
         int delta;
+        shared_ptr<vector<int>> bestMove;
+        shared_ptr<vector<int>> move;
+        shared_ptr<vector<int>> bestNeighbour = make_shared<vector<int>>(currentSolution);
         while(neigbourhoodIterator.move_next()){
-            delta = neigbourhoodIterator.current_value().second;
-            auto neighbour = neigbourhoodIterator.current_value().first;
+            move = neigbourhoodIterator.current_value();
+            if(move->size() == 2){
+                // exchange nodes
+                int i = (*move)[0];
+                int j = (*move)[1];
+                int tmp = currentSolution[i];
+                delta = distances[currentSolution[i == 0 ? currentSolution.size() - 1 : i - 1]][j] + costs[j] + distances[j][currentSolution[i == currentSolution.size() - 1 ? 0 : i + 1]] - distances[currentSolution[i == 0 ? currentSolution.size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][currentSolution[i == currentSolution.size() - 1 ? 0 : i + 1]];
+            }
+            else if(move->size() == 4){
+                // edge exchnge
+                delta = distances[(*move)[1]][(*move)[2]] + distances[(*move)[0]][(*move)[3]] - distances[(*move)[0]][(*move)[1]] - distances[(*move)[2]][(*move)[3]];
+            }
+            // find the best move
             if(delta < bestDelta){
-                bestNeighbour = make_shared<vector<int>>(neighbour);
                 bestDelta = delta;
+                bestMove = move;
             }
         }
-        cout << "best delta: " << bestDelta << endl;
-        cout << "neighbour returned" << endl;
-        // cout << typeid(bestNeighbour).name() << endl;
+
+        // make a move - create the neighbour
+        if(move->size() == 2){
+            // node exchange
+            int i = (*move)[0];
+            int j = (*move)[1];
+            (*bestNeighbour)[i] = j;
+        }
+        else if(move->size() == 4){
+            // edge exchange
+            int j = (*move)[1];
+            int k = (*move)[2];
+            reverse(bestNeighbour->begin() + j, bestNeighbour->begin() + k + 1);
+        }
+        else{
+            throw runtime_error("aaaaaaaaaaa");
+        }
         return bestNeighbour;
     }
 
-    generator<pair<shared_ptr<vector<int>>, int>> neighbourhoodGenerator(vector<int>& currentSolution){
+
+
+    generator<shared_ptr<vector<int>>> neighbourhoodGenerator(vector<int>& currentSolution){
         vector<NeighbourhoodType> nTypeOrder = {intra, inter};
         shuffle(nTypeOrder.begin(), nTypeOrder.end(),rng);
         for(auto nType: nTypeOrder){
@@ -506,63 +326,71 @@ public:
 
     }
 
-    generator<pair<shared_ptr<vector<int>>, int>> interNeighbourhoodGenerator(vector<int>& currentSolution){
-        vector<pair<int, int>> moves;
-        pair<shared_ptr<vector<int>>, int> returnPair;
-        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
+    generator<shared_ptr<vector<int>>> interNeighbourhoodGenerator(vector<int>& currentSolution){
+        // shared_ptr<vector<pair<int, int>>> moves;
+        // shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
+        vector<int> temp_vec = {0, 0};
+        shared_ptr<vector<int>> move = make_shared<vector<int>>(temp_vec);
+
         for (int i = 0; i < currentSolution.size(); i++) {
             for (int j = 0; j < costs.size(); j++) {
                 if (!visited[j]) {
-                    moves.push_back({i, j});
+                    (*move)[0] = i;
+                    (*move)[1] = j;
+                    co_yield move;
+                    // moves.push_back({i, j});
                 }
             }
         }
 
-        std::shuffle(std::begin(moves), std::end(moves), rng);
-        int delta;
-        for (const auto& [i, j] : moves) {
-            auto tmp = (*neighbour)[i];
-            delta = distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][j] + costs[j] + distances[j][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]] - distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]];
-            (*neighbour)[i] = j;
-            returnPair.first = neighbour;
-            returnPair.second = delta;
-            co_yield returnPair;
-            // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
-            // co_yield pair<shared_ptr<vector<int>>, int>(neighbour, delta);
-            (*neighbour)[i] = tmp; //reversing change to save time copying memory
-        }
+        // std::shuffle(std::begin(moves), std::end(moves), rng);
+        // for (const auto& [i, j] : moves) {
+        //     auto tmp = (*neighbour)[i];
+        //     (*neighbour)[i] = j;
+        //     returnPair.first = neighbour;
+        //     returnPair.second = distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][j] + costs[j] + distances[j][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]] - distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]];
+        //     // co_yield 1;
+        //     co_yield returnPair;
+        //     // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
+        //     // co_yield pair<shared_ptr<vector<int>>, int>(neighbour, delta);
+        //     (*neighbour)[i] = tmp; //reversing change to save time copying memory
+        // }
     }
 
-    generator<pair<shared_ptr<vector<int>>, int>> intraNeighbourhoodGenerator(vector<int>& currentSolution){
+    generator<shared_ptr<vector<int>>> intraNeighbourhoodGenerator(vector<int>& currentSolution){
         return intraEdgesNeighbourhoodGenerator(currentSolution);
     }
 
-    generator<pair<shared_ptr<vector<int>>, int>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
-        shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
-        pair<shared_ptr<vector<int>>, int> returnPair;
-        vector<pair<pair<int, int>, pair<int, int>>> moves;
-        for (int i = 0; i < neighbour->size(); i++) {
-            for (int j = i + 2; j < neighbour->size(); j++) {
-                moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
+    generator<shared_ptr<vector<int>>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
+        // shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
+        // vector<pair<pair<int, int>, pair<int, int>>> moves;
+        vector<int> temp_vec = {0, 0, 0, 0};
+        shared_ptr<vector<int>> move = make_shared<vector<int>>(temp_vec);
+        for (int i = 0; i < currentSolution.size(); i++) {
+            for (int j = i + 2; j < currentSolution.size(); j++) {
+                (*move)[0] = i;
+                (*move)[1] = i+1;
+                (*move)[2] = j;
+                (*move)[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
+                co_yield move;
+                // moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
             }
         }
-        std::shuffle(std::begin(moves), std::end(moves), rng);
-        int delta;
-        for (const auto& [edge1, edge2] : moves) {
-            if (edge1.second < edge2.second) {
-                reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
-                delta = distances[edge1.second][edge2.first] + distances[edge1.first][edge2.second] - distances[edge1.first][edge1.second] - distances[edge2.first][edge2.second];
-                returnPair.first = neighbour;
-                returnPair.second = delta;
-                co_yield returnPair;
-                // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
-                reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
-                // to save time copying memory
-            }
-            else if(edge2.second != 0){
-                throw runtime_error("Incorrect edge indices: "  + to_string(edge1.second) + " " + to_string(edge2.second));
-            }
-        }
+        // std::shuffle(std::begin(moves), std::end(moves), rng);
+        // for (const auto& [edge1, edge2] : moves) {
+        //     if (edge1.second < edge2.second) {
+        //         reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
+        //         returnPair.first = neighbour;
+        //         returnPair.second = distances[edge1.second][edge2.first] + distances[edge1.first][edge2.second] - distances[edge1.first][edge1.second] - distances[edge2.first][edge2.second];
+        //         co_yield returnPair;
+        //         // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
+        //         reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
+        //         // to save time copying memory
+        //     }
+        //     else if(edge2.second != 0){
+        //         throw runtime_error("Incorrect edge indices: "  + to_string(edge1.second) + " " + to_string(edge2.second));
+        //     }
+        // }
     }
 };
 
