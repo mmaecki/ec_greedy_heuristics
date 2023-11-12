@@ -14,12 +14,12 @@
 #include <random>
 #include <cassert>
 #include <typeinfo>
+#include<unistd.h> 
 
 using namespace std;
 
 
 auto rng = std::default_random_engine(869468469);
-
 struct Result{
     int bestCost;
     int worstCost;
@@ -159,22 +159,27 @@ public:
     InterNeighbourhoodType intraNeighbourhoodType;
     vector<bool> visited;
     int nPoints;
-    LocalSearch(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i)
+    vector<vector<int>> closestNeighbours;
+    LocalSearch(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i, vector<vector<int>> closestNeighbours)
         : Algo(distances, costs, i, "LocalSearch"), searchType(searchType), initialSolutionType(initialSolutionType), intraNeighbourhoodType(intraNeighbourhoodType) {
             this->name += "_" + SearchTypeStrings[searchType];
             this->name += "_" + InitialSolutionTypeStrings[initialSolutionType];
             this->name += "_" + InterNeighbourhoodTypeStrings[intraNeighbourhoodType];
             visited = vector<bool>(distances.size());
             nPoints = distances.size();
+            this->closestNeighbours = closestNeighbours;
+
         }
 
     int calculate_cost(const vector<int>& solution){
         int cost = 0;
         for(int j=0; j<solution.size()-1; j++){
             cost += this->distances[solution[j]][solution[j+1]];
-            cost+=this->costs[solution[j]];
         }
         cost+=this->distances[solution[solution.size()-1]][solution[0]];
+        for(int j=0;j<solution.size();j++){
+            cost+=this->costs[solution[j]];
+        }
         return cost;
     }
 
@@ -198,13 +203,6 @@ public:
             
             shared_ptr<vector<int>> newSolution = search(solution, solutionCost);
             int newSolutionCost = calculate_cost(*newSolution);
-            for (int i = 0; i < newSolution->size(); i++) {
-                cout << (*newSolution)[i] << " ";
-            }
-            cout << endl;
-            // cout << "new solution cost: " << newSolutionCost << endl;
-            /////////////////////////////////////////////////////////////////////////////////////////
-            //caclulate number of shared numbers in solution
             int shared = 0;
             bool temp_visited[nPoints];
             for(int i=0; i<nPoints; i++){
@@ -228,8 +226,7 @@ public:
                 cout << endl;
                 throw runtime_error("Solution is not valid");
             }
-            /////////////////////////////////////////////////////////////////////////////////////////
-            if(newSolutionCost == solutionCost) break;
+            if(newSolutionCost >= solutionCost) break;
             solution = *newSolution;
 
             solutionCost = newSolutionCost;
@@ -242,17 +239,6 @@ public:
             RandomSearch rs = RandomSearch(distances, costs, i);
             return rs.solve().bestSolution;
         }
-        // if (ist == GC)
-        // {
-        //     GreedyCycle gc = GreedyCycle(distances, costs, i);
-        //     return gc.solve().bestSolution;
-
-        // }
-        // if (ist == G2Rw)
-        // {
-        //     Greedy2RegretWieghted g2rw = Greedy2RegretWieghted(distances, costs, i);
-        //     return g2rw.solve().bestSolution;
-        // }
     }
 
     shared_ptr<vector<int>> search(vector<int>& currentSolution, int currentSolutionCost){
@@ -263,56 +249,120 @@ public:
         auto neigbourhoodIterator = neighbourhoodGenerator(currentSolution);
         int bestDelta = INT32_MAX;
         int delta;
-        shared_ptr<vector<int>> bestMove;
-        shared_ptr<vector<int>> move;
+        vector<int> bestMove;
+        vector<int> move;
         shared_ptr<vector<int>> bestNeighbour = make_shared<vector<int>>(currentSolution);
         while(neigbourhoodIterator.move_next()){
             move = neigbourhoodIterator.current_value();
-            if(move->size() == 2){
+            if(move.size() == 2){
                 // exchange nodes
-                int i = (*move)[0];
-                int j = (*move)[1];
-                int tmp = currentSolution[i];
-                delta = distances[currentSolution[i == 0 ? currentSolution.size() - 1 : i - 1]][j] + costs[j] + distances[j][currentSolution[i == currentSolution.size() - 1 ? 0 : i + 1]] - distances[currentSolution[i == 0 ? currentSolution.size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][currentSolution[i == currentSolution.size() - 1 ? 0 : i + 1]];
+                int i = move[0];
+                int new_node = move[1];
+                int old_node = currentSolution[i];
+                int oldCost = costs[old_node] + distances[old_node][currentSolution[(i+1)%currentSolution.size()]] + distances[old_node][currentSolution[(i-1+currentSolution.size())%currentSolution.size()]];
+                int newCost = costs[new_node] + distances[new_node][currentSolution[(i+1)%currentSolution.size()]] + distances[new_node][currentSolution[(i-1+currentSolution.size())%currentSolution.size()]];
+                delta = newCost - oldCost;
             }
-            else if(move->size() == 4){
+            else if(move.size() == 4){
                 // edge exchnge
-                delta = distances[(*move)[1]][(*move)[2]] + distances[(*move)[0]][(*move)[3]] - distances[(*move)[0]][(*move)[1]] - distances[(*move)[2]][(*move)[3]];
+                int edge1_first = currentSolution[move[0]];
+                int edge1_second = currentSolution[move[1]];
+                int edge2_first = currentSolution[move[2]];
+                int edge2_second = currentSolution[move[3]];
+                int oldCost = distances[edge1_first][edge1_second] + distances[edge2_first][edge2_second];
+                int newCost = distances[edge1_first][edge2_first] + distances[edge1_second][edge2_second];
+                delta = newCost - oldCost;
             }
+
             // find the best move
             if(delta < bestDelta){
                 bestDelta = delta;
                 bestMove = move;
             }
         }
-
+        
         // make a move - create the neighbour
-        if(move->size() == 2){
+        if(bestMove.size() == 2){
             // node exchange
-            int i = (*move)[0];
-            int j = (*move)[1];
+            int i = bestMove[0];
+            int j = bestMove[1];
             (*bestNeighbour)[i] = j;
         }
-        else if(move->size() == 4){
+        else if(bestMove.size() == 4){
             // edge exchange
-            int j = (*move)[1];
-            int k = (*move)[2];
+            int j = bestMove[1];
+            int k = bestMove[2];
             reverse(bestNeighbour->begin() + j, bestNeighbour->begin() + k + 1);
         }
         else{
-            throw runtime_error("aaaaaaaaaaa");
+            throw runtime_error("Wrong size of best move");
         }
         return bestNeighbour;
     }
 
+    void checkDelta(vector<int> currentSolution, vector<int> move){
+        vector<int> neighbour = currentSolution;
+        int delta;
+        if(move.size() == 2){
+            // exchange nodes
+            int i = move[0];
+            int new_node = move[1];
+            int old_node = currentSolution[i];
+            int oldCost = costs[old_node] + distances[old_node][currentSolution[(i+1)%currentSolution.size()]] + distances[old_node][currentSolution[(i-1+currentSolution.size())%currentSolution.size()]];
+            int newCost = costs[new_node] + distances[new_node][currentSolution[(i+1)%currentSolution.size()]] + distances[new_node][currentSolution[(i-1+currentSolution.size())%currentSolution.size()]];
+            delta = newCost - oldCost;
+            neighbour[i] = new_node;
+        }
+        else if(move.size() == 4){
+            // edge exchnge
+            int j = move[1];
+            int k = move[2];
+            reverse(neighbour.begin() + j, neighbour.begin() + k + 1);
+            int edge1_first = currentSolution[move[0]];
+            int edge1_second = currentSolution[move[1]];
+            int edge2_first = currentSolution[move[2]];
+            int edge2_second = currentSolution[move[3]];
+            int oldCost = distances[edge1_first][edge1_second] + distances[edge2_first][edge2_second];
+            int newCost = distances[edge1_first][edge2_first] + distances[edge1_second][edge2_second];
+            delta = newCost - oldCost;
+        }
+        else{
+            throw runtime_error("Wrong size of best move");
+        }
+
+        if(calculate_cost(currentSolution) + delta != calculate_cost(neighbour)){
+            //print current solution
+            cout << "Current solution: ";
+            for(int i=0; i<currentSolution.size(); i++){
+                cout << currentSolution[i] << " ";
+            }
+            cout << endl;
+            cout << "Move: ";
+            for(int i=0; i<move.size(); i++){
+                cout << move[i] << " ";
+            }
+            cout << endl;
+            cout << "Neighbour: ";
+            for(int i=0; i<neighbour.size(); i++){
+                cout << neighbour[i] << " ";
+            }
+            cout << endl;
+            cout << "Delta: " << delta << endl;
+            cout << "Current cost: " << calculate_cost(currentSolution) << endl;
+            cout << "Neighbour cost: " << calculate_cost(neighbour) << endl;
+            throw runtime_error("Wrong delta");
+        }
+
+    }
 
 
-    generator<shared_ptr<vector<int>>> neighbourhoodGenerator(vector<int>& currentSolution){
+
+    generator<vector<int>> neighbourhoodGenerator(vector<int>& currentSolution){
         vector<NeighbourhoodType> nTypeOrder = {intra, inter};
         shuffle(nTypeOrder.begin(), nTypeOrder.end(),rng);
         for(auto nType: nTypeOrder){
             if(nType == intra){
-                auto intraNeighbourhoodIterator = intraNeighbourhoodGenerator(currentSolution);
+                auto intraNeighbourhoodIterator = intraEdgesNeighbourhoodGenerator(currentSolution);
                 while(intraNeighbourhoodIterator.move_next()){
                     co_yield intraNeighbourhoodIterator.current_value();
                 }
@@ -326,71 +376,37 @@ public:
 
     }
 
-    generator<shared_ptr<vector<int>>> interNeighbourhoodGenerator(vector<int>& currentSolution){
-        // shared_ptr<vector<pair<int, int>>> moves;
-        // shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
-        vector<int> temp_vec = {0, 0};
-        shared_ptr<vector<int>> move = make_shared<vector<int>>(temp_vec);
-
+    generator<vector<int>> interNeighbourhoodGenerator(vector<int>& currentSolution){
+        vector<int> move = {0, 0};
         for (int i = 0; i < currentSolution.size(); i++) {
-            for (int j = 0; j < costs.size(); j++) {
-                if (!visited[j]) {
-                    (*move)[0] = i;
-                    (*move)[1] = j;
+            int currentnode = currentSolution[i];
+            int already_found = 0;
+            for (int j = 0; j < 110; j++) {
+                int current_neigbour = closestNeighbours[currentnode][j];
+                if (!visited[current_neigbour]) {
+                    move[0] = i;
+                    move[1] = current_neigbour;
                     co_yield move;
-                    // moves.push_back({i, j});
+                    already_found++;
+                    if(already_found == 10) break;
                 }
             }
         }
-
-        // std::shuffle(std::begin(moves), std::end(moves), rng);
-        // for (const auto& [i, j] : moves) {
-        //     auto tmp = (*neighbour)[i];
-        //     (*neighbour)[i] = j;
-        //     returnPair.first = neighbour;
-        //     returnPair.second = distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][j] + costs[j] + distances[j][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]] - distances[(*neighbour)[i == 0 ? neighbour->size() - 1 : i - 1]][tmp] - costs[tmp] - distances[tmp][(*neighbour)[i == neighbour->size() - 1 ? 0 : i + 1]];
-        //     // co_yield 1;
-        //     co_yield returnPair;
-        //     // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
-        //     // co_yield pair<shared_ptr<vector<int>>, int>(neighbour, delta);
-        //     (*neighbour)[i] = tmp; //reversing change to save time copying memory
-        // }
     }
 
-    generator<shared_ptr<vector<int>>> intraNeighbourhoodGenerator(vector<int>& currentSolution){
-        return intraEdgesNeighbourhoodGenerator(currentSolution);
-    }
-
-    generator<shared_ptr<vector<int>>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
-        // shared_ptr<std::vector<int>> neighbour = make_shared<std::vector<int>>(currentSolution);
-        // vector<pair<pair<int, int>, pair<int, int>>> moves;
+    generator<vector<int>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
         vector<int> temp_vec = {0, 0, 0, 0};
-        shared_ptr<vector<int>> move = make_shared<vector<int>>(temp_vec);
+        vector<int> move = vector<int>(temp_vec);
         for (int i = 0; i < currentSolution.size(); i++) {
-            for (int j = i + 2; j < currentSolution.size(); j++) {
-                (*move)[0] = i;
-                (*move)[1] = i+1;
-                (*move)[2] = j;
-                (*move)[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
+            for (int j = i + 2; j < currentSolution.size() && j<i+12; j++) {
+                move[0] = i;
+                move[1] = i+1;
+                move[2] = j;
+                move[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
                 co_yield move;
-                // moves.push_back({{i, i + 1}, {j, j == currentSolution.size() - 1 ? 0 : j + 1}});
             }
         }
-        // std::shuffle(std::begin(moves), std::end(moves), rng);
-        // for (const auto& [edge1, edge2] : moves) {
-        //     if (edge1.second < edge2.second) {
-        //         reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
-        //         returnPair.first = neighbour;
-        //         returnPair.second = distances[edge1.second][edge2.first] + distances[edge1.first][edge2.second] - distances[edge1.first][edge1.second] - distances[edge2.first][edge2.second];
-        //         co_yield returnPair;
-        //         // co_yield pair<shared_ptr<vector<int>>, int>(make_pair(neighbour, delta));
-        //         reverse(neighbour->begin() + edge1.second, neighbour->begin() + edge2.first + 1);
-        //         // to save time copying memory
-        //     }
-        //     else if(edge2.second != 0){
-        //         throw runtime_error("Incorrect edge indices: "  + to_string(edge1.second) + " " + to_string(edge2.second));
-        //     }
-        // }
+
     }
 };
 
@@ -457,6 +473,20 @@ int main(){
         for(int i=0; i< data.size(); i++){
             costs.push_back(data[i][2]);
         }
+        vector<vector<int>> closestNeighbours = vector<vector<int>>(distances.size());
+        int n_closest = 110;
+        for(int i=0; i<distances.size(); i++){
+            vector<int> closest;
+            for(int j=0; j<distances.size(); j++){
+                closest.push_back(j);
+            }
+            sort(closest.begin(), closest.end(), [i, distances, &costs](int a, int b){
+                double costA = distances[i][a] + costs[a];
+                double costB = distances[i][b] + costs[b];
+                return costA < costB;
+            });
+            closestNeighbours[i] = vector<int>(closest.begin(), closest.begin() + n_closest);
+        }
         for(auto searchType: searchTypes){
             for(auto initialSolutionType: initialSolutionTypes){
                 for(auto interNeighbourhoodType: interNeighbourhoodTypes){
@@ -467,8 +497,7 @@ int main(){
                     Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
                     double averageTime = 0;
                     for(int i=0; i<distances.size(); i++){
-                        cout << "Iteration: " << i << endl;
-                        LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i);
+                        LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i, closestNeighbours);
                         clock_t start, end;
                         start = clock();
                         vector<int> solution = ls.solve().bestSolution;
@@ -498,7 +527,7 @@ int main(){
                         cout << algoResult.bestSolution[i] << " ";
                     }
                     cout << endl;
-                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0);
+                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0, closestNeighbours);
                     write_solution_to_file(algoResult.bestSolution, ls.get_name(), ProblemInstanceStrings[problemInstance]);
                 }
             }
