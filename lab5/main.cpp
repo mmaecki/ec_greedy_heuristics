@@ -15,6 +15,7 @@
 #include <cassert>
 #include <typeinfo>
 #include<unistd.h> 
+#include <set>
 
 using namespace std;
 
@@ -190,7 +191,14 @@ public:
         for(int i=0; i<solution.size(); i++){
             visited[solution[i]] = true;
         }
+        // set<pair<int, vector<int>>> LM;
         while(true){
+            for(int i=0; i<visited.size(); i++){
+                    visited[i] = false;
+            }
+            for(int i=0; i<solution.size(); i++){
+                visited[solution[i]] = true;
+            }
             //update visited
             for(int i=0; i<visited.size(); i++){
                 visited[i] = false;
@@ -378,14 +386,10 @@ public:
         vector<int> move = {0, 0};
         for (int i = 0; i < currentSolution.size(); i++) {
             int currentnode = currentSolution[i];
-            for (int j = 0; j < 10; j++) {
-                int current_neigbour = closestNeighbours[currentnode][j];
-                if (!visited[current_neigbour]) {
-                    move[0] = (i-1)%currentSolution.size();
-                    move[1] = current_neigbour;
-                    co_yield move;
-                    move[0] = (i+1)%currentSolution.size();
-                    move[1] = current_neigbour;
+            for (int j = 0; j < distances.size(); j++) {
+                if (!visited[j]) {
+                    move[0] = i;
+                    move[1] = j;
                     co_yield move;
                 }
             }
@@ -399,15 +403,11 @@ public:
             int node1 = currentSolution[i];
             int node1_next = currentSolution[(i + 1) % currentSolution.size()];
             for (int j = i + 2; j < currentSolution.size(); j++) {
-                int node2 = currentSolution[j];
-                int node2_next = currentSolution[(j + 1) % currentSolution.size()];
-                if (candidateBoolMatrix[node1][node2] || candidateBoolMatrix[node2][node1] || candidateBoolMatrix[node1_next][node2_next] || candidateBoolMatrix[node2_next][node1_next]) {
-                    move[0] = i;
-                    move[1] = i+1;
-                    move[2] = j;
-                    move[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
-                    co_yield move;
-                }
+                move[0] = i;
+                move[1] = i+1;
+                move[2] = j;
+                move[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
+                co_yield move;
             }
         }
 
@@ -477,33 +477,16 @@ int main(){
         for(int i=0; i< data.size(); i++){
             costs.push_back(data[i][2]);
         }
-        vector<vector<int>> closestNeighbours = vector<vector<int>>(distances.size());
-        int n_closest = 10;
-        for(int i=0; i<distances.size(); i++){
-            vector<int> closest;
-            for(int j=0; j<distances.size(); j++){
-                if(i==j) continue;
-                closest.push_back(j);
-            }
-            sort(closest.begin(), closest.end(), [i, distances, &costs](int a, int b){
-                double costA = distances[i][a] + costs[a];
-                double costB = distances[i][b] + costs[b];
-                return costA < costB;
-            });
-            closestNeighbours[i] = vector<int>(closest.begin(), closest.begin() + n_closest);
-        }
         for(auto searchType: searchTypes){
             for(auto initialSolutionType: initialSolutionTypes){
                 for(auto interNeighbourhoodType: interNeighbourhoodTypes){
                     cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
-                    // cout << "Search type: " << SearchTypeStrings[searchType] << endl;
-                    // cout << "Initial solution type: " << InitialSolutionTypeStrings[initialSolutionType] << endl;
-                    // cout << "Inter neighbourhood type: " << InterNeighbourhoodTypeStrings[interNeighbourhoodType] << endl;
-                    cout << "Name: " << LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0, closestNeighbours).name << endl;
+                    cout << "Name: " << LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0).name << endl;
                     Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
                     double averageTime = 0;
                     for(int i=0; i<distances.size(); i++){
-                        LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i, closestNeighbours);
+                        cout << i << endl;
+                        LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, i);
                         clock_t start, end;
                         start = clock();
                         vector<int> solution = ls.solve().bestSolution;
@@ -533,7 +516,7 @@ int main(){
                         cout << algoResult.bestSolution[i] << " ";
                     }
                     cout << endl;
-                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0, closestNeighbours);
+                    LocalSearch ls = LocalSearch(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0);
                     write_solution_to_file(algoResult.bestSolution, ls.get_name(), ProblemInstanceStrings[problemInstance]);
                 }
             }
