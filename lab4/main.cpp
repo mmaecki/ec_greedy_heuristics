@@ -160,6 +160,7 @@ public:
     vector<bool> visited;
     int nPoints;
     vector<vector<int>> closestNeighbours;
+    vector<vector<int>> candidateBoolMatrix;
     LocalSearch(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i, vector<vector<int>> closestNeighbours)
         : Algo(distances, costs, i, "LocalSearch"), searchType(searchType), initialSolutionType(initialSolutionType), intraNeighbourhoodType(intraNeighbourhoodType) {
             this->name += "_" + SearchTypeStrings[searchType];
@@ -168,6 +169,14 @@ public:
             visited = vector<bool>(distances.size());
             nPoints = distances.size();
             this->closestNeighbours = closestNeighbours;
+            candidateBoolMatrix = vector<vector<int>>(distances.size(), vector<int>(distances.size()));
+            for(int node1=0; node1<distances.size(); node1++){
+                for(int j=0; j<closestNeighbours[node1].size(); j++){
+                    int node2 = closestNeighbours[node1][j];
+                    candidateBoolMatrix[node1][node2] = 1;
+                    // cout <<"creating" << endl;
+                }
+            }
 
         }
 
@@ -380,15 +389,15 @@ public:
         vector<int> move = {0, 0};
         for (int i = 0; i < currentSolution.size(); i++) {
             int currentnode = currentSolution[i];
-            int already_found = 0;
-            for (int j = 0; j < 110; j++) {
+            for (int j = 0; j < 10; j++) {
                 int current_neigbour = closestNeighbours[currentnode][j];
                 if (!visited[current_neigbour]) {
-                    move[0] = i;
+                    move[0] = (i-1)%currentSolution.size();
                     move[1] = current_neigbour;
                     co_yield move;
-                    already_found++;
-                    if(already_found == 10) break;
+                    move[0] = (i+1)%currentSolution.size();
+                    move[1] = current_neigbour;
+                    co_yield move;
                 }
             }
         }
@@ -398,12 +407,18 @@ public:
         vector<int> temp_vec = {0, 0, 0, 0};
         vector<int> move = vector<int>(temp_vec);
         for (int i = 0; i < currentSolution.size(); i++) {
-            for (int j = i + 2; j < currentSolution.size() && j<i+12; j++) {
-                move[0] = i;
-                move[1] = i+1;
-                move[2] = j;
-                move[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
-                co_yield move;
+            int node1 = currentSolution[i];
+            int node1_next = currentSolution[(i + 1) % currentSolution.size()];
+            for (int j = i + 2; j < currentSolution.size(); j++) {
+                int node2 = currentSolution[j];
+                int node2_next = currentSolution[(j + 1) % currentSolution.size()];
+                if (candidateBoolMatrix[node1][node2] || candidateBoolMatrix[node2][node1] || candidateBoolMatrix[node1_next][node2_next] || candidateBoolMatrix[node2_next][node1_next]) {
+                    move[0] = i;
+                    move[1] = i+1;
+                    move[2] = j;
+                    move[3] = (j == currentSolution.size() - 1 ? 0 : j + 1);
+                    co_yield move;
+                }
             }
         }
 
@@ -474,10 +489,11 @@ int main(){
             costs.push_back(data[i][2]);
         }
         vector<vector<int>> closestNeighbours = vector<vector<int>>(distances.size());
-        int n_closest = 110;
+        int n_closest = 10;
         for(int i=0; i<distances.size(); i++){
             vector<int> closest;
             for(int j=0; j<distances.size(); j++){
+                if(i==j) continue;
                 closest.push_back(j);
             }
             sort(closest.begin(), closest.end(), [i, distances, &costs](int a, int b){
