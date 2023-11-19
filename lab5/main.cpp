@@ -282,11 +282,42 @@ public:
     }
 
     void applyMove(vector<int>* solution, const vector<int>& move){//modifies solution i think usuall  poinnter is enuogh
-        //TODO apply
+        if(move.size() == 5){
+            int i = move[0];
+            int j = move[1];
+            (*solution)[i] = j;
+        }else if(move.size() == 4){
+            int j = move[1];
+            int k = move[2];
+            reverse(solution->begin() + j, solution->begin() + k + 1);
+        }
     }
 
     vector<vector<int>> generateNewMoves(vector<int> & solution, const vector<int>& move){
-        return {{1,2,3}};//TODO add new moves
+        if(move.size() == 5){
+            vector<vector<int>> newMoves;
+            int currentNodeId = move[0];
+            int currentNode = solution[move[0]];
+            int previousNode = solution[(move[0]-1)%solution.size()];
+            int nextNode = solution[(move[0]+1)%solution.size()];
+            int newNode = move[1];
+            //generate moves from newly inserte node to all not inserted
+            for(int i=0;i<distances.size(); i++){
+                if(i!=move[1] && !visited[i]){//if different than node currently being inserted
+                    newMoves.push_back(makeInterMove(currentNodeId, i, currentNode, previousNode, nextNode));
+                }
+            }
+            //generate moves from previously inserted node to all already in solution
+            for(int i=0; i< solution.size(); i++){
+                if(i == move[0]) continue;//skip the node that was just inserted
+                newMoves.push_back(makeInterMove(i, currentNode, solution[i], solution[(i-1)%solution.size()], solution[(i+1)%solution.size()]));
+            }
+            return newMoves;
+        }else if(move.size() == 4){
+
+        }else{
+            throw runtime_error("Wrong size of move");
+        }
     }
 
     shared_ptr<vector<int>> search(vector<int>& currentSolution, int currentSolutionCost){
@@ -436,10 +467,14 @@ public:
                     move[3] = currentSolution[i-1]%currentSolution.size();//previous node
                     move[4] = currentSolution[(i+1)%currentSolution.size()];//next node
                     //move cost calculation is applicable if previous node and next node are still the same 
-                    co_yield move;
+                    co_yield makeInterMove(i, j, currentSolution[i], currentSolution[(i-1)%currentSolution.size()], currentSolution[(i+1)%currentSolution.size()]);
                 }
             }
         }
+    }
+
+    vector<int> makeInterMove(int currentNodeId, int newNode, int currentNode, int previousNode, int nextNode){
+        return {currentNodeId, newNode, currentNode, previousNode, nextNode};
     }
 
     generator<vector<int>> intraEdgesNeighbourhoodGenerator(vector<int>& currentSolution){
