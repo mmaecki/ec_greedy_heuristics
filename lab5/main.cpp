@@ -314,7 +314,9 @@ public:
             }
             return newMoves;
         }else if(move.size() == 4){
-
+            //gnerate moves from new edges to all already in solution
+            //generate for edge1
+            //genrate for edge2
         }else{
             throw runtime_error("Wrong size of move");
         }
