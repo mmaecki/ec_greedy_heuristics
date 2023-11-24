@@ -285,7 +285,8 @@ public:
             if(cost_after-cost_before != lmIt->first){
                 cout << "Wrong delta calculation" << endl;
             }
-            auto newMoves = generateNewMoves(solution, lmIt->second);
+            vector<vector<int>> newMoves;
+            generateNewMoves(newMoves, solution, lmIt->second);
             for(auto newMove: newMoves){
                 int delta = calculateDelta(solution, newMove);
                 if(delta < 0){
@@ -386,30 +387,25 @@ public:
         }
     }
 
-    vector<vector<int>> generateVisitedToNonVisited(vector<int> & solution, int nodeId){
-        vector<vector<int>> newMoves;
+    void generateVisitedToNonVisited(vector<vector<int>>& newMoves, vector<int> & solution, int nodeId){
         for(int i=0; i<distances.size(); i++){
             if(!visited[i]){
                 newMoves.push_back(makeInterMove(nodeId, i, solution[nodeId], solution[fixIndex(nodeId-1, solution.size())], solution[fixIndex(nodeId+1, solution.size())]));
             }
         }
-        return newMoves;
     }
 
-    vector<vector<int>> fromEdgeToAllOtherEdges(vector<int> & solution, int edge_first){
-        vector<vector<int>> newMoves;
+    void fromEdgeToAllOtherEdges(vector<vector<int>>& newMoves, vector<int> & solution, int edge_first){
         for(int i=0; i<edge_first-1; i++){
             newMoves.push_back(makeIntraMove(i, fixIndex(i+1, solution.size()), edge_first, fixIndex(edge_first+1, solution.size()), solution[i], solution[fixIndex(i+1, solution.size())], solution[edge_first], solution[fixIndex(edge_first+1, solution.size())]));
         }
         for(int i=edge_first+2; i<solution.size(); i++){
             newMoves.push_back(makeIntraMove(edge_first, fixIndex(edge_first+1, solution.size()), i, fixIndex(i+1, solution.size()), solution[edge_first], solution[fixIndex(edge_first+1, solution.size())], solution[i], solution[fixIndex(i+1, solution.size())]));
         }
-        return newMoves;
 
     }
 
-    vector<vector<int>> generateNewMoves(vector<int> & solution, const vector<int>& move) {
-        vector<vector<int>> newMoves;
+    void generateNewMoves(vector<vector<int>>& newMoves, vector<int> & solution, const vector<int>& move) {
         if (move.size() == 5) {
 //            throw runtime_error("move 5 should not happen");
             int currentNodeId = move[0];
@@ -419,12 +415,9 @@ public:
             int nextNodeIndex = fixIndex(move[0] + 1, solution.size());
             int nextNode = solution[nextNodeIndex];
             int newNode = move[1];
-            vector<vector<int>> generatedCurrent = generateVisitedToNonVisited(solution, currentNodeId);
-            newMoves.insert(newMoves.end(), generatedCurrent.begin(), generatedCurrent.end());
-            vector<vector<int>> generatedPrevious = generateVisitedToNonVisited(solution, previousNodeIndex);
-            newMoves.insert(newMoves.end(), generatedPrevious.begin(), generatedPrevious.end());
-            vector<vector<int>> generatedNext = generateVisitedToNonVisited(solution, nextNodeIndex);
-            newMoves.insert(newMoves.end(), generatedNext.begin(), generatedNext.end());
+            generateVisitedToNonVisited(newMoves, solution, currentNodeId);
+            generateVisitedToNonVisited(newMoves, solution, previousNodeIndex);
+            generateVisitedToNonVisited(newMoves, solution, nextNodeIndex);
             //generate moves from previously inserted node to all already in solution
             for (int i = 0; i < solution.size(); i++) {
                 if (i == move[0]) continue;//skip the node that was just inserted
@@ -436,34 +429,27 @@ public:
             //we have new edge from previous to new node and from new to next node
             //previous to new
             if(DOINTRA) {
-                vector<vector<int>> generatedPreviousToNew = fromEdgeToAllOtherEdges(solution, previousNodeIndex);
-                newMoves.insert(newMoves.end(), generatedPreviousToNew.begin(), generatedPreviousToNew.end());
-                vector<vector<int>> generatedNewToNext = fromEdgeToAllOtherEdges(solution, currentNodeId);
-                newMoves.insert(newMoves.end(), generatedNewToNext.begin(), generatedNewToNext.end());
+                fromEdgeToAllOtherEdges(newMoves, solution, previousNodeIndex);
+                fromEdgeToAllOtherEdges(newMoves, solution, currentNodeId);
             }
 
         } else if (move.size() == 8) {
             //throw runtime_error("move 8 should not happen");
             //gnerate moves from new edges to all already in solution
             //generate for edge1
-            vector<vector<int>> generatedEdge1 = fromEdgeToAllOtherEdges(solution, move[0]);
-            newMoves.insert(newMoves.end(), generatedEdge1.begin(), generatedEdge1.end());
+            for(int i=move[0]; i <= move[2]; i++) {
+                fromEdgeToAllOtherEdges(newMoves, solution, i);
+            }
             //generate for edge2
-            vector<vector<int>> generatedEdge2 = fromEdgeToAllOtherEdges(solution, move[2]);
-            newMoves.insert(newMoves.end(), generatedEdge2.begin(), generatedEdge2.end());
+//            vector<vector<int>> generatedEdge2 = fromEdgeToAllOtherEdges(newMoves, solution, move[2]);
             //add missing inter moves
-            vector<vector<int>> generatedInterEdge1First = generateVisitedToNonVisited(solution, move[0]);
-            newMoves.insert(newMoves.end(), generatedInterEdge1First.begin(), generatedInterEdge1First.end());
-            vector<vector<int>> generatedInterEdge1Second = generateVisitedToNonVisited(solution, move[1]);
-            newMoves.insert(newMoves.end(), generatedInterEdge1Second.begin(), generatedInterEdge1Second.end());
-            vector<vector<int>> generatedInterEdge2First = generateVisitedToNonVisited(solution, move[2]);
-            newMoves.insert(newMoves.end(), generatedInterEdge2First.begin(), generatedInterEdge2First.end());
-            vector<vector<int>> generatedInterEdge2Second = generateVisitedToNonVisited(solution, move[3]);
-            newMoves.insert(newMoves.end(), generatedInterEdge2Second.begin(), generatedInterEdge2Second.end());
+            generateVisitedToNonVisited(newMoves, solution, move[0]);
+            generateVisitedToNonVisited(newMoves, solution, move[1]);
+            generateVisitedToNonVisited(newMoves, solution, move[2]);
+            generateVisitedToNonVisited(newMoves, solution, move[3]);
         } else {
             throw runtime_error("Wrong size of move");
         }
-        return newMoves;
     }
 
     generator<vector<int>> neighbourhoodGenerator(vector<int>& currentSolution){
