@@ -14,7 +14,7 @@
 #include <random>
 #include <cassert>
 #include <typeinfo>
-#include<unistd.h> 
+#include<unistd.h>
 #include <set>
 
 using namespace std;
@@ -29,7 +29,7 @@ struct Result{
     vector<int> worstSolution;
 
     Result(int bc, int wc, int ac, vector<int> bs, vector<int> ws)
-        : bestCost(bc), worstCost(wc), averageCost(ac), bestSolution(bs), worstSolution(ws) {}
+            : bestCost(bc), worstCost(wc), averageCost(ac), bestSolution(bs), worstSolution(ws) {}
 };
 
 
@@ -40,7 +40,7 @@ public:
     int starting_node;
     string name;
     Algo(vector<vector<int>> distances, vector<int> costs, int i, string name)
-        : distances(distances), costs(costs), starting_node(i), name(name) {}
+            : distances(distances), costs(costs), starting_node(i), name(name) {}
     virtual Result solve() =0;
     int calculate_cost(vector<int> solution, vector<vector<int>> distances, vector<int> costs){
         int cost = 0;
@@ -61,8 +61,8 @@ public:
 class RandomSearch : public Algo {
 public:
     RandomSearch(vector<vector<int>> distances, vector<int> costs, int i)
-        : Algo(distances, costs, i, "RandomSearch") {}
-    
+            : Algo(distances, costs, i, "RandomSearch") {}
+
     Result solve() {
         vector<int> worstSolution;
         int solution_size = this->distances.size()/2;
@@ -79,7 +79,7 @@ public:
             while(visited[next])next = rand() % this->distances.size();
             current_solution[j] = next;
             visited[next]=true;
-        }        
+        }
         return Result(0, 0, 0, current_solution, worstSolution);
     }
 };
@@ -88,7 +88,7 @@ template <typename T>
 struct generator {
     struct promise_type;
     using handle_type = std::coroutine_handle<promise_type>;
-    
+
     struct promise_type {
         T value;
         std::suspend_always initial_suspend() { return {}; }
@@ -120,41 +120,41 @@ enum InterNeighbourhoodType {twoNode, twoEdges};
 enum ProblemInstance {TSPA, TSPB, TSPC, TSPD};
 
 std::map<SearchType, std::string> SearchTypeStrings = {
-    {greedy, "greedy"},
-    {steepest, "steepest"}
+        {greedy, "greedy"},
+        {steepest, "steepest"}
 };
 
 std::map<InitialSolutionType, std::string> InitialSolutionTypeStrings = {
-    {randomAlg, "random"},
+        {randomAlg, "random"},
 };
 
 std::map<NeighbourhoodType, std::string> NeighbourhoodTypeStrings = {
-    {intra, "intra"},
-    {inter, "inter"}
+        {intra, "intra"},
+        {inter, "inter"}
 };
 
 std::map<InterNeighbourhoodType, std::string> InterNeighbourhoodTypeStrings = {
-    {twoNode, "twoNode"},
-    {twoEdges, "twoEdges"}
+        {twoNode, "twoNode"},
+        {twoEdges, "twoEdges"}
 };
 
 std::map<ProblemInstance, std::string> ProblemInstanceStrings = {
-    {TSPA, "TSPA"},
-    {TSPB, "TSPB"},
-    {TSPC, "TSPC"},
-    {TSPD, "TSPD"}
+        {TSPA, "TSPA"},
+        {TSPB, "TSPB"},
+        {TSPC, "TSPC"},
+        {TSPD, "TSPD"}
 };
 
 std::map<ProblemInstance, InitialSolutionType> BestInitialForInstance = {
-    {TSPA, G2Rw},
-    {TSPB, G2Rw},
-    {TSPC, GC},
-    {TSPD, G2Rw}
+        {TSPA, G2Rw},
+        {TSPB, G2Rw},
+        {TSPC, GC},
+        {TSPD, G2Rw}
 };
 
 
 
-enum MoveEvaluationResult {doMove, removeMove, skipMove};
+enum MoveEvaluationResult {doMove, doReversed,  removeMove, skipMove};
 
 class LocalSearch: public Algo {
 public:
@@ -164,14 +164,14 @@ public:
     vector<bool> visited;
     int nPoints;
     LocalSearch(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i)
-        : Algo(distances, costs, i, "LS"), searchType(searchType), initialSolutionType(initialSolutionType), intraNeighbourhoodType(intraNeighbourhoodType) {
-            this->name += "_" + SearchTypeStrings[searchType];
-            this->name += "_" + InitialSolutionTypeStrings[initialSolutionType];
-            this->name += "_" + InterNeighbourhoodTypeStrings[intraNeighbourhoodType];
-            this->name += "Candidate";
-            visited = vector<bool>(distances.size());
-            nPoints = distances.size();
-        }
+            : Algo(distances, costs, i, "LS"), searchType(searchType), initialSolutionType(initialSolutionType), intraNeighbourhoodType(intraNeighbourhoodType) {
+        this->name += "_" + SearchTypeStrings[searchType];
+        this->name += "_" + InitialSolutionTypeStrings[initialSolutionType];
+        this->name += "_" + InterNeighbourhoodTypeStrings[intraNeighbourhoodType];
+        this->name += "Candidate";
+        visited = vector<bool>(distances.size());
+        nPoints = distances.size();
+    }
 
     int calculate_cost(const vector<int>& solution){
         int cost = 0;
@@ -245,11 +245,11 @@ public:
 //        return Result(calculate_cost(solution), 0, 0, solution, vector<int>());
 //    }
 
-    
+
     Result solve() {
         vector<int> solution = getInitialSolution(this->initialSolutionType, starting_node);
         for(int i=0; i<visited.size(); i++){
-                visited[i] = false;
+            visited[i] = false;
         }
         for(int i=0; i<solution.size(); i++){
             visited[solution[i]] = true;
@@ -266,6 +266,7 @@ public:
 
         while(LM.size() > 0){
             auto lmIt = LM.begin();
+            vector<int> selectedMove;
             while(lmIt != LM.end()){
                 auto moveEvaluationResult = evaluateMove(solution, lmIt->second);
                 if(moveEvaluationResult == skipMove){
@@ -273,6 +274,11 @@ public:
                 }else if(moveEvaluationResult == removeMove){
                     lmIt = LM.erase(lmIt);
                 }else{
+                    selectedMove = lmIt->second;
+                    if(moveEvaluationResult == doReversed){
+                        std::swap(selectedMove[4], selectedMove[5]);
+                        std::swap(selectedMove[6], selectedMove[7]);
+                    }
                     break;
                 }
             }
@@ -280,13 +286,13 @@ public:
                 break;
             }
             int cost_before = calculate_cost(solution);
-            applyMove(&solution, lmIt->second);
+            applyMove(&solution, selectedMove);
             int cost_after = calculate_cost(solution);
             if(cost_after-cost_before != lmIt->first){
                 cout << "Wrong delta calculation" << endl;
             }
             vector<vector<int>> newMoves;
-            generateNewMoves(newMoves, solution, lmIt->second);
+            generateNewMoves(newMoves, solution, selectedMove);
             for(auto newMove: newMoves){
                 int delta = calculateDelta(solution, newMove);
                 if(delta < 0){
@@ -361,8 +367,13 @@ public:
             if(solution[move[0]] == move[4] && solution[move[1]] == move[5] && solution[move[2]] == move[6] && solution[move[3]] == move[7]){
                 return doMove;
             }
-            //if all nodes are the same but reversed skip move
+            //if all nodes are the same but reversed do rewerse move
             if(solution[move[0]] == move[5] && solution[move[1]] == move[4] && solution[move[2]] == move[7] && solution[move[3]] == move[6]){
+                //swap move[4] move[5] and move[6] move[7]
+                return doReversed;
+            }
+            //removed edges occur in the current solution in a different direction from the saved one – not applicable now but the move can be applied in the future - skip
+            if(solution[move[0]] == move[5] && solution[move[1]] == move[4] || solution[move[2]] == move[7] && solution[move[3]] == move[6]){
                 return skipMove;
             }
             //else removeMove
@@ -538,14 +549,14 @@ vector<vector<int>> calcDistances(vector<vector<int>> data){
 
 
 void write_solution_to_file(vector<int> sol, string algo_name, string data_name){
-        string filename = "results/" + algo_name + "_"+ data_name + ".csv";
-        ofstream file;
-        file.open(filename);
-        for(int i=0; i<sol.size(); i++){
-            file << sol[i] << endl;
-        }
-        file.close();
+    string filename = "results/" + algo_name + "_"+ data_name + ".csv";
+    ofstream file;
+    file.open(filename);
+    for(int i=0; i<sol.size(); i++){
+        file << sol[i] << endl;
     }
+    file.close();
+}
 
 
 int main(){
