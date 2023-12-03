@@ -145,6 +145,14 @@ std::map<ProblemInstance, std::string> ProblemInstanceStrings = {
         {TSPD, "TSPD"}
 };
 
+//times
+map<ProblemInstance, double> maxTimes = {
+        {TSPA, 38.216},
+        {TSPB, 40.5296},
+        {TSPC, 43.9474},
+        {TSPD, 45.5663}
+};
+
 
 
 
@@ -356,15 +364,18 @@ vector<vector<int>> calcDistances(vector<vector<int>> data){
     return distances;
 }
 
-
-void write_solution_to_file(vector<int> sol, string algo_name, string data_name){
-    string filename = "results/" + algo_name + "_"+ data_name + ".csv";
-    ofstream file;
-    file.open(filename);
-    for(int i=0; i<sol.size(); i++){
-        file << sol[i] << endl;
+bool validateSolution(vector<int> solution, vector<vector<int>> distances){
+    if(solution.size() != distances.size()/2){
+        return false;
     }
-    file.close();
+    vector<bool> visited = vector<bool>(distances.size());
+    for(int i=0; i<solution.size(); i++){
+        if(visited[solution[i]]){
+            return false;
+        }
+        visited[solution[i]] = true;
+    }
+    return true;
 }
 
 
@@ -392,19 +403,98 @@ public:
 
 class ILS: public LocalSearch{
 public:
-    int maxIter;
-    ILS(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i, int maxIter)
-            : LocalSearch(searchType, initialSolutionType, intraNeighbourhoodType, distances, costs, i), maxIter(maxIter) {
+    double maxTime;
+    ILS(SearchType searchType, InitialSolutionType initialSolutionType, InterNeighbourhoodType intraNeighbourhoodType, vector<vector<int>> distances, vector<int> costs, int i, double maxTime)
+            : LocalSearch(searchType, initialSolutionType, intraNeighbourhoodType, distances, costs, i), maxTime(maxTime) {
         this->name = "ILS_" + this->name;
     }
     Result solve() override {
-        int bestCost = INT32_MAX;
-        vector<int> bestSolution;
-        for(int i=0; i<distances.size(); i++) {
-            LocalSearch ls = LocalSearch(searchType, initialSolutionType, intraNeighbourhoodType, distances, costs, i);
-            vector<int> solution = ls.solve().bestSolution;
+        clock_t start;
+        start = clock();
+        LocalSearch ls = LocalSearch(searchType, initialSolutionType, intraNeighbourhoodType, distances, costs, rand() % distances.size());
+        vector<int> bestSolution = ls.solve().bestSolution;
+        int bestCost = ls.calculate_cost(bestSolution);
+        while(double(clock() - start) / double(CLOCKS_PER_SEC) < maxTime){
+            vector<int> perturbedSolution = perturb(bestSolution);
+            for(int i=0; i<ls.visited.size(); i++){
+                ls.visited[i] = false;
+                visited[i] = false;
+            }
+            for(int i=0; i<perturbedSolution.size(); i++){
+                ls.visited[perturbedSolution[i]] = true;
+                visited[perturbedSolution[i]] = true;
+            }
+            ls.localSearch(&perturbedSolution);
+            int currentCost = ls.calculate_cost(perturbedSolution);
+            if(currentCost < bestCost){
+                bestSolution = perturbedSolution;
+                bestCost = currentCost;
+            }
         }
         return Result(bestCost, 0, 0, bestSolution, vector<int>());
+    }
+
+    vector<int> perturb(vector<int>& solution){
+        int type = rand() % 4;
+        if(type == 0){
+            return perturbSwap(solution);
+        }
+        else if(type == 1){
+            return perturbReverseReverse(solution);
+        }
+        else if(type == 2){
+            return perturbExchange(solution);
+        }
+        else{
+            return perturbShuffle(solution);
+        }
+    }
+
+    vector<int> perturbSwap(vector<int>& solution){
+        vector<int> newSolution = vector<int>(solution);
+        int i = rand() % solution.size();
+        int next_i = fixIndex(i+1, solution.size());
+        swap(newSolution[i], newSolution[next_i]);
+        return newSolution;
+    }
+
+    vector<int> perturbReverseReverse(vector<int>& solution){
+        //performs reverse once which is equivalent of edge exchange, but then performs reverse inside the previous one
+        vector<int> newSolution = vector<int>(solution);
+        //len from 3 to 8
+        int length = rand() % 6 + 3;
+        int i = rand() % (solution.size() - length);
+        int j = i + length - 1;
+        reverse(newSolution.begin() + i, newSolution.begin() + j + 1);
+        //k from i to j-1
+        int k = rand() % (j - i) + i;
+        //h from k to j
+        int h = rand() % (j - k) + k;
+        reverse(newSolution.begin() + k, newSolution.begin() + h + 1);
+        return newSolution;
+    }
+
+    vector<int> perturbExchange(vector<int>& solution){
+        //swaps node insdie the solution
+        vector<int> newSolution = vector<int>(solution);
+        //from 3 to 5 swaps
+        int swaps = rand() % 3 + 3;
+        for(int i=0; i<swaps; i++){
+            int solution_id_first = rand() % solution.size();
+            int solution_id_second = rand() % solution.size();
+            swap(newSolution[solution_id_first], newSolution[solution_id_second]);
+        }
+        return newSolution;
+    }
+
+    vector<int> perturbShuffle(vector<int>& solution){
+        vector<int> newSolution = vector<int>(solution);
+        //from 10 to 20
+        int length = rand() % 11 + 10;
+        int i = rand() % (solution.size() - length);
+        int j = i + length - 1;
+        shuffle(newSolution.begin() + i, newSolution.begin() + j + 1, rng);
+        return newSolution;
     }
 };
 
@@ -433,12 +523,12 @@ int main(){
             for(auto initialSolutionType: initialSolutionTypes){
                 for(auto interNeighbourhoodType: interNeighbourhoodTypes){
                     cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
-                    cout << "Name: " << MSLS(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0).name << endl;
+                    cout << "Name: " << ILS(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0, maxTimes[problemInstance]).get_name() << endl;
                     Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
                     double averageTime = 0;
                     for(int i=0; i<N_TRIES; i++){
                         cout<< "Try: " << i << endl;
-                        MSLS ls = MSLS(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, -1);
+                        ILS ls = ILS(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, -1, maxTimes[problemInstance]);
                         clock_t start, end;
                         start = clock();
                         vector<int> solution = ls.solve().bestSolution;
