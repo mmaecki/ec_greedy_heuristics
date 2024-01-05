@@ -50,10 +50,10 @@ public:
     vector<vector<int>> distances;
     vector<int> costs;
     string name;
-    Algo(vector<vector<int>> distances, vector<int> costs,string name)
+    Algo(vector<vector<int>> distances, vector<int> costs, string name)
         : distances(distances), costs(costs), name(name) {}
     virtual Result solve() = 0;
-    int calculate_cost(vector<int>& solution)
+    int calculate_cost(vector<int> &solution)
     {
         int cost = 0;
         for (int j = 0; j < solution.size() - 1; j++)
@@ -69,7 +69,6 @@ public:
         return this->name;
     }
 };
-
 
 template <typename T>
 struct generator
@@ -112,11 +111,10 @@ class LocalSearch : public Algo
 public:
     vector<bool> visited;
     LocalSearch(vector<vector<int>> distances, vector<int> costs)
-            : Algo(distances, costs, "LS")
+        : Algo(distances, costs, "LS")
     {
         visited = vector<bool>(distances.size());
     }
-
 
     int fixIndex(int index, int solutionSize)
     {
@@ -161,8 +159,7 @@ public:
         }
     }
 
-
-    int calculateDelta(vector<int>solution, vector<int> &move)
+    int calculateDelta(vector<int> solution, vector<int> &move)
     {
         int delta;
         if (move.size() == 3)
@@ -269,9 +266,6 @@ public:
     }
 };
 
-
-
-
 class EvolutionaryAlgorithm : public Algo
 {
 public:
@@ -285,8 +279,9 @@ public:
     map<int, shared_ptr<vector<int>>> population;
 
     EvolutionaryAlgorithm(vector<vector<int>> distances, vector<int> costs, string name, int population_size, int max_iterations, int max_time, int elitism_size)
-        : Algo(distances, costs, name), populationSize(population_size), maxIterations(max_iterations), maxTime(max_time),  elitismSize(elitism_size), ls(distances, costs) {
-            this->solutionSize = distances.size() / 2;
+        : Algo(distances, costs, name), populationSize(population_size), maxIterations(max_iterations), maxTime(max_time), elitismSize(elitism_size), ls(distances, costs)
+    {
+        this->solutionSize = distances.size() / 2;
     }
 
     Result solve()
@@ -295,81 +290,99 @@ public:
         int iteration = 0;
         clock_t start, end;
         start = clock();
-        while (iteration < maxIterations && (double(end - start) / double(CLOCKS_PER_SEC)) < maxTime) {
+        while (iteration < maxIterations && (double(end - start) / double(CLOCKS_PER_SEC)) < maxTime)
+        {
             iteration++;
             map<int, shared_ptr<vector<int>>> new_population;
-            while (new_population.size() < populationSize - elitismSize) {
+            while (new_population.size() < populationSize - elitismSize)
+            {
                 pair<shared_ptr<vector<int>>, shared_ptr<vector<int>>> parents = select_parents();
                 vector<shared_ptr<vector<int>>> children = crossover(parents.first, parents.second);
-                for (auto child: children) {
-                    if (doLocalSearch) {
+                for (auto child : children)
+                {
+                    if (doLocalSearch)
+                    {
                         ls.localSearch(child);
                     }
                     int cost = calculate_cost(*child);
                     if (new_population.find(cost) == new_population.end() and
-                        population.find(cost) == population.end()) {
+                        population.find(cost) == population.end())
+                    {
                         new_population[cost] = child;
                     }
-                    if (new_population.size() == populationSize - elitismSize) {
+                    if (new_population.size() == populationSize - elitismSize)
+                    {
                         break;
                     }
                 }
             }
-            while (population.size() > elitismSize) {
+            while (population.size() > elitismSize)
+            {
                 population.erase(population.rbegin()->first);
             }
-            for (auto it = new_population.begin(); it != new_population.end(); it++) {
+            for (auto it = new_population.begin(); it != new_population.end(); it++)
+            {
                 population[it->first] = it->second;
             }
             end = clock();
         }
 
-        //best solution has lowest score
+        // best solution has lowest score
         int bestCost = population.begin()->first;
         vector<int> bestSolution = *population.begin()->second;
-        return Result(bestCost, bestCost, bestCost, bestSolution, bestSolution);
+        return Result(bestCost, bestCost, iteration, bestSolution, bestSolution);
     }
 
-    void generate_initial_population() {
-        while(population.size() < populationSize) {
+    void generate_initial_population()
+    {
+        while (population.size() < populationSize)
+        {
             shared_ptr<vector<int>> solution = make_shared<vector<int>>(solutionSize);
             iota(solution->begin(), solution->end(), 0);
             shuffle(solution->begin(), solution->end(), rng);
             solution->resize(solutionSize);
-            if(doLocalSearch){
+            if (doLocalSearch)
+            {
                 ls.localSearch(solution);
             }
             int cost = calculate_cost(*solution);
-            if (population.find(cost) == population.end()) {
+            if (population.find(cost) == population.end())
+            {
                 population[cost] = solution;
             }
         }
     }
 
-    pair<shared_ptr<vector<int>>, shared_ptr<vector<int>>> select_parents() {
+    pair<shared_ptr<vector<int>>, shared_ptr<vector<int>>> select_parents()
+    {
         std::uniform_int_distribution<> dist(0, populationSize - 1);
         auto first = std::begin(population);
         std::advance(first, dist(rng));
         auto second = std::begin(population);
-        do{
+        do
+        {
             second = std::begin(population);
             std::advance(second, dist(rng));
-        } while(first == second);
+        } while (first == second);
         return make_pair(first->second, second->second);
     }
 
-
-    vector<shared_ptr<vector<int>>> crossover(shared_ptr<vector<int>> first_parent, shared_ptr<vector<int>> second_parent) {
-        //random crossover 1 or 2
-        if(rand() % 2 == 0) {
+    vector<shared_ptr<vector<int>>> crossover(shared_ptr<vector<int>> first_parent, shared_ptr<vector<int>> second_parent)
+    {
+        // random crossover 1 or 2
+        if (rand() % 2 == 0)
+        {
             return crossover1(first_parent, second_parent);
-        } else {
+        }
+        else
+        {
             return crossover2(first_parent, second_parent);
         }
     }
 
-    //we do not need common edges
-    vector<shared_ptr<vector<int>>> crossover1(shared_ptr<vector<int>> first_parent, shared_ptr<vector<int>> second_parent) {
+    // we do not need common edges
+    vector<shared_ptr<vector<int>>> crossover1(shared_ptr<vector<int>> first_parent, shared_ptr<vector<int>> second_parent)
+    {
         unordered_set<int> first_nodes;
         unordered_set<int> second_nodes;
         for (int i = 0; i < first_parent->size(); i++)
@@ -387,22 +400,31 @@ public:
         }
         vector<int> firstChild(solutionSize);
         vector<int> secondChild(solutionSize);
-        for(int i = 0; i < solutionSize; i++) {
-            if(common_nodes.find((*first_parent)[i]) != common_nodes.end()) {
+        for (int i = 0; i < solutionSize; i++)
+        {
+            if (common_nodes.find((*first_parent)[i]) != common_nodes.end())
+            {
                 firstChild[i] = (*first_parent)[i];
-            }else{
+            }
+            else
+            {
                 firstChild[i] = -1;
             }
-            if(common_nodes.find((*second_parent)[i]) != common_nodes.end()) {
+            if (common_nodes.find((*second_parent)[i]) != common_nodes.end())
+            {
                 secondChild[i] = (*second_parent)[i];
-            }else{
+            }
+            else
+            {
                 secondChild[i] = -1;
             }
         }
         vector<int> missingNodes;
-        for(int i = 0; i < solutionSize; i++){
-            //if i not in common nodes
-            if(common_nodes.find(i) == common_nodes.end()) {
+        for (int i = 0; i < solutionSize; i++)
+        {
+            // if i not in common nodes
+            if (common_nodes.find(i) == common_nodes.end())
+            {
                 missingNodes.push_back(i);
             }
         }
@@ -410,12 +432,15 @@ public:
         vector<int> secondMissingNodes = missingNodes;
         shuffle(firstMissingNodes.begin(), firstMissingNodes.end(), rng);
         shuffle(secondMissingNodes.begin(), secondMissingNodes.end(), rng);
-        for(int i = 0; i < solutionSize; i++) {
-            if(firstChild[i] == -1) {
+        for (int i = 0; i < solutionSize; i++)
+        {
+            if (firstChild[i] == -1)
+            {
                 firstChild[i] = firstMissingNodes.back();
                 firstMissingNodes.pop_back();
             }
-            if(secondChild[i] == -1) {
+            if (secondChild[i] == -1)
+            {
                 secondChild[i] = secondMissingNodes.back();
                 secondMissingNodes.pop_back();
             }
@@ -426,54 +451,56 @@ public:
         return children;
     }
 
-
     //    Operator 2. We choose one of the parents as the starting solution. We remove from this
-//            solution all edges and nodes that are not present in the other parent. The solution is
-//            repaired using the heuristic method in the same way as in the LNS method. We also test the
-//    version of the algorithm without local search after recombination (we still use local search
-//    for the initial population).
-    vector<shared_ptr<vector<int>>> crossover2(shared_ptr<vector<int>> parent1, shared_ptr<vector<int>> parent2, mt19937 &rng) {
+    //            solution all edges and nodes that are not present in the other parent. The solution is
+    //            repaired using the heuristic method in the same way as in the LNS method. We also test the
+    //    version of the algorithm without local search after recombination (we still use local search
+    //    for the initial population).
+    vector<shared_ptr<vector<int>>> crossover2(shared_ptr<vector<int>> parent1, shared_ptr<vector<int>> parent2)
+    {
+        cout<<"crossover2"<<endl;
         shared_ptr<vector<int>> child = make_shared<vector<int>>(*parent1); // Start with a copy of parent1
 
         // Create sets for easier search
         unordered_set<int> parent1Nodes(parent1->begin(), parent1->end());
         unordered_set<int> parent2Nodes(parent2->begin(), parent2->end());
-
+        cout<<"parent1Nodes"<<endl;
         // Remove nodes from child that are not present in parent2
         child->erase(
-                remove_if(child->begin(), child->end(), [&parent2Nodes](int node) {
-                    return parent2Nodes.find(node) == parent2Nodes.end();
-                }),
-                child->end()
-        );
-
+            remove_if(child->begin(), child->end(), [&parent2Nodes](int node)
+                      { return parent2Nodes.find(node) == parent2Nodes.end(); }),
+            child->end());
+        cout<<"child->erase"<<endl;
         // Identify missing nodes
         unordered_set<int> missingNodes;
-        for (int i = 0; i < solutionSize; ++i) { // Assuming solutionSize is the size of the parent solutions
-            if (parent1Nodes.find(i) != parent1Nodes.end() && find(child->begin(), child->end(), i) == child->end()) {
+        for (int i = 0; i < solutionSize; ++i)
+        { // Assuming solutionSize is the size of the parent solutions
+            if (parent1Nodes.find(i) != parent1Nodes.end() && find(child->begin(), child->end(), i) == child->end())
+            {
                 missingNodes.insert(i);
             }
         }
+        cout<<"missingNodes"<<endl;
 
         // Add random missing nodes to the child until it has the same length as the parents
-        while (child->size() < parent1->size()) {
+        while (child->size() < solutionSize)
+        {
+            cout<<missingNodes.size()<<endl;
             auto it = missingNodes.begin();
             advance(it, rng() % missingNodes.size()); // Random selection
             child->push_back(*it);
             missingNodes.erase(it); // Remove the added node from the set of missing nodes
         }
-
+        cout<<"while"<<endl;
         // Repair the child using local search
         ls.localSearch(child);
-
+        cout<<"ls.localSearch"<<endl;
         // Wrap in a vector and return
         vector<shared_ptr<vector<int>>> children;
         children.push_back(child);
         return children;
     }
 };
-
-
 
 enum ProblemInstance
 {
@@ -495,9 +522,6 @@ map<ProblemInstance, double> maxTimes = {
     {TSPB, 40.5296},
     {TSPC, 43.9474},
     {TSPD, 45.5663}};
-
-
-
 
 vector<vector<int>> read_file(string filename)
 {
@@ -536,83 +560,70 @@ vector<vector<int>> calcDistances(vector<vector<int>> data)
     }
     return distances;
 }
-int N_TRIES = 20;
 
-int main(){
-    return 0;
+int main()
+{
+    string root_path = "../data/";
+    vector<ProblemInstance> problemInstances = {TSPA, TSPB, TSPC, TSPD};
+    vector<bool> doLocalSearch = {true, false};
+    int N_TRIES = 20;
+    for (auto problemInstance : problemInstances)
+    {
+        string file = root_path + ProblemInstanceStrings[problemInstance] + ".csv";
+        auto data = read_file(file);
+        auto distances = calcDistances(data);
+        vector<int> costs;
+        for (int i = 0; i < data.size(); i++)
+        {
+            costs.push_back(data[i][2]);
+        }
+        for (auto doLocalSearch : doLocalSearch)
+        {
+            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20).get_name() << endl;
+            cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
+            Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
+            double averageTime = 0;
+            double avg_iterations_number = 0;
+
+            for (int i = 0; i < N_TRIES; i++)
+            {
+                cout << "Try: " << i << endl;
+                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20);
+                clock_t start, end;
+                start = clock();
+                Result res = ea.solve();
+                end = clock();
+                vector<int> solution = res.bestSolution;
+                avg_iterations_number += res.averageCost; // iterations number
+                double time_taken = double(end - start) / double(CLOCKS_PER_SEC);
+                int cost = ea.calculate_cost(solution);
+                if (cost < algoResult.bestCost)
+                {
+                    algoResult.bestCost = cost;
+                    algoResult.bestSolution = solution;
+                }
+                if (cost > algoResult.worstCost)
+                {
+                    algoResult.worstCost = cost;
+                    algoResult.worstSolution = solution;
+                }
+                algoResult.averageCost += cost;
+                averageTime += time_taken;
+            }
+            avg_iterations_number /= N_TRIES;
+            algoResult.averageCost /= N_TRIES;
+            cout << "Best cost: " << algoResult.bestCost << endl;
+            cout << "Worst cost: " << algoResult.worstCost << endl;
+            cout << "Average cost: " << algoResult.averageCost << endl;
+            averageTime /= N_TRIES;
+            cout << "Average time: " << averageTime << endl;
+            cout << "Best solution: ";
+            for (int i = 0; i < algoResult.bestSolution.size(); i++)
+            {
+                cout << algoResult.bestSolution[i] << " ";
+            }
+            cout << endl;
+            cout << "Average iterations number: " << avg_iterations_number << endl;
+        }
+    }
 }
-//int main()
-//{
-//    string root_path = "../data/";
-//    vector<ProblemInstance> problemInstances = {TSPC, TSPD};
-//
-//
-//    for (auto problemInstance : problemInstances)
-//    {
-//        string file = root_path + ProblemInstanceStrings[problemInstance] + ".csv";
-//        auto data = read_file(file);
-//        auto distances = calcDistances(data);
-//        vector<int> costs;
-//        for (int i = 0; i < data.size(); i++)
-//        {
-//            costs.push_back(data[i][2]);
-//        }
-//        for (auto searchType : searchTypes)
-//        {
-//            for (auto initialSolutionType : initialSolutionTypes)
-//            {
-//                for (auto interNeighbourhoodType : interNeighbourhoodTypes)
-//                {
-//                    for (auto doLocalSearch : doLocalSearch)
-//                    {
-//                        cout << "Name: " << LSNS(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, 0, maxTimes[problemInstance], doLocalSearch).get_name() << endl;
-//                        cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
-//                        Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
-//                        double averageTime = 0;
-//                        double avg_iterations_number = 0;
-//
-//                        for (int i = 0; i < N_TRIES; i++)
-//                        {
-//                            cout << "Try: " << i << endl;
-//                            LSNS ls = LSNS(searchType, initialSolutionType, interNeighbourhoodType, distances, costs, -1, maxTimes[problemInstance], doLocalSearch);
-//                            clock_t start, end;
-//                            start = clock();
-//                            Result res = ls.solve();
-//                            end = clock();
-//                            vector<int> solution = res.bestSolution;
-//                            avg_iterations_number += res.averageCost; // iterations number
-//                            double time_taken = double(end - start) / double(CLOCKS_PER_SEC);
-//                            int cost = ls.calculate_cost(solution);
-//                            if (cost < algoResult.bestCost)
-//                            {
-//                                algoResult.bestCost = cost;
-//                                algoResult.bestSolution = solution;
-//                            }
-//                            if (cost > algoResult.worstCost)
-//                            {
-//                                algoResult.worstCost = cost;
-//                                algoResult.worstSolution = solution;
-//                            }
-//                            algoResult.averageCost += cost;
-//                            averageTime += time_taken;
-//                        }
-//                        avg_iterations_number /= N_TRIES;
-//                        algoResult.averageCost /= N_TRIES;
-//                        cout << "Best cost: " << algoResult.bestCost << endl;
-//                        cout << "Worst cost: " << algoResult.worstCost << endl;
-//                        cout << "Average cost: " << algoResult.averageCost << endl;
-//                        averageTime /= N_TRIES;
-//                        cout << "Average time: " << averageTime << endl;
-//                        cout << "Best solution: ";
-//                        for (int i = 0; i < algoResult.bestSolution.size(); i++)
-//                        {
-//                            cout << algoResult.bestSolution[i] << " ";
-//                        }
-//                        cout << endl;
-//                        cout << "Average iterations number: " << avg_iterations_number << endl;
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
