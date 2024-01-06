@@ -352,9 +352,6 @@ public:
         while (iteration < maxIterations && (double(end - start) / double(CLOCKS_PER_SEC)) < maxTime)
         {
             iteration++;
-            map<int, shared_ptr<vector<int>>> new_population;
-            while (new_population.size() < populationSize - elitismSize)
-            {
                 pair<shared_ptr<vector<int>>, shared_ptr<vector<int>>> parents = select_parents();
                 vector<shared_ptr<vector<int>>> children = crossover(parents.first, parents.second);
                 for (auto child : children)
@@ -370,25 +367,14 @@ public:
                         ls.localSearch(child);
                     }
                     int cost = calculate_cost(*child);
-                    if (new_population.find(cost) == new_population.end() and
-                        population.find(cost) == population.end())
-                    {
-                        new_population[cost] = child;
-                    }
-                    if (new_population.size() == populationSize - elitismSize)
-                    {
-                        break;
+                    //if child is smaller than the biggest in population
+                    if (cost < population.rbegin()->first && !(population.find(cost) == population.end())) {
+                        if (population.size() > populationSize) {
+                            population.erase(population.rbegin()->first);
+                        }
+                        population[cost] = child;
                     }
                 }
-            }
-            while (population.size() > elitismSize)
-            {
-                population.erase(population.rbegin()->first);
-            }
-            for (auto it = new_population.begin(); it != new_population.end(); it++)
-            {
-                population[it->first] = it->second;
-            }
             end = clock();
         }
 
@@ -406,7 +392,14 @@ public:
             iota(solution->begin(), solution->end(), 0);
             shuffle(solution->begin(), solution->end(), rng);
             solution->resize(solutionSize);
+            for (int i = 0; i < ls.visited.size(); i++){
+                ls.visited[i] = false;
+            }
+            for (int i = 0; i < solution->size(); i++){
+                ls.visited[(*solution)[i]] = true;
+            }
             ls.localSearch(solution);
+            
             int cost = calculate_cost(*solution);
             if (population.find(cost) == population.end())
             {
@@ -640,7 +633,7 @@ int main()
         }
         for (auto doLocalSearch : doLocalSearch)
         {
-            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20, doLocalSearch).get_name() << endl;
+            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 20, 10000000, maxTimes[problemInstance], 20, doLocalSearch).get_name() << endl;
             cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
             Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
             double averageTime = 0;
@@ -649,7 +642,7 @@ int main()
             for (int i = 0; i < N_TRIES; i++)
             {
                 cout << "Try: " << i << endl;
-                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20, doLocalSearch);
+                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 20, 10000000, maxTimes[problemInstance], 20, doLocalSearch);
                 clock_t start, end;
                 start = clock();
                 Result res = ea.solve();
