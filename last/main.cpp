@@ -70,6 +70,62 @@ public:
     }
 };
 
+class GreedyCycle : public Algo
+{
+public:
+    GreedyCycle(vector<vector<int>> distances, vector<int> costs, int i)
+        : Algo(distances, costs, "GreedyCycle") {}
+
+    Result solve()
+    {
+        return Result(0, 0, 0, vector<int>(), vector<int>());
+    }
+
+    Result repair(vector<int> partial_solution)
+    {
+        vector<int> worstSolution;
+        int solution_size = this->distances.size() / 2;
+        vector<int> current_solution = partial_solution;
+        vector<bool> visited(this->costs.size());
+        for (int i = 0; i < current_solution.size(); i++)
+        {
+            visited[current_solution[i]] = true;
+        }
+        while (current_solution.size() < solution_size)
+        {
+            int smallest_increase = INT32_MAX;
+            int insert_index = -1;
+            int insert_node = -1;
+
+            for (int j = 0; j < current_solution.size(); j++)
+            { // Dla każdego nodea z cyklu
+                int min_distance = INT32_MAX;
+                int min_index = -1;
+                for (int k = 0; k < this->distances.size(); k++)
+                { // znajdź najbliższy nieodwiedzony node
+                    if (visited[k])
+                        continue;
+                    int curr = -this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + this->distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + this->distances[k][current_solution[j]] + this->costs[k];
+                    if (curr < min_distance)
+                    {
+                        min_distance = curr;
+                        min_index = k;
+                    }
+                }
+                if (min_distance < smallest_increase)
+                {
+                    smallest_increase = min_distance;
+                    insert_index = j;
+                    insert_node = min_index;
+                }
+            } // koniec
+            current_solution.insert(current_solution.begin() + insert_index, insert_node);
+            visited[insert_node] = true;
+        }
+        return Result(0, 0, 0, current_solution, worstSolution);
+    }
+};
+
 template <typename T>
 struct generator
 {
@@ -278,10 +334,13 @@ public:
     bool doLocalSearch;
     map<int, shared_ptr<vector<int>>> population;
 
-    EvolutionaryAlgorithm(vector<vector<int>> distances, vector<int> costs, string name, int population_size, int max_iterations, int max_time, int elitism_size)
-        : Algo(distances, costs, name), populationSize(population_size), maxIterations(max_iterations), maxTime(max_time), elitismSize(elitism_size), ls(distances, costs)
+    EvolutionaryAlgorithm(vector<vector<int>> distances, vector<int> costs, string name, int population_size, int max_iterations, int max_time, int elitism_size, bool doLocalSearch)
+        : Algo(distances, costs, name), populationSize(population_size), maxIterations(max_iterations), maxTime(max_time), elitismSize(elitism_size), ls(distances, costs), doLocalSearch(doLocalSearch)
     {
         this->solutionSize = distances.size() / 2;
+        if(doLocalSearch){
+            this->name += "_LS";
+        }
     }
 
     Result solve()
@@ -301,7 +360,13 @@ public:
                 for (auto child : children)
                 {
                     if (doLocalSearch)
-                    {
+                    {   // reset visited
+                        for (int i = 0; i < ls.visited.size(); i++){
+                            ls.visited[i] = false;
+                        }
+                        for (int i = 0; i < child->size(); i++){
+                            ls.visited[(*child)[i]] = true;
+                        }
                         ls.localSearch(child);
                     }
                     int cost = calculate_cost(*child);
@@ -341,10 +406,7 @@ public:
             iota(solution->begin(), solution->end(), 0);
             shuffle(solution->begin(), solution->end(), rng);
             solution->resize(solutionSize);
-            if (doLocalSearch)
-            {
-                ls.localSearch(solution);
-            }
+            ls.localSearch(solution);
             int cost = calculate_cost(*solution);
             if (population.find(cost) == population.end())
             {
@@ -451,53 +513,52 @@ public:
         return children;
     }
 
-    //    Operator 2. We choose one of the parents as the starting solution. We remove from this
-    //            solution all edges and nodes that are not present in the other parent. The solution is
-    //            repaired using the heuristic method in the same way as in the LNS method. We also test the
-    //    version of the algorithm without local search after recombination (we still use local search
-    //    for the initial population).
     vector<shared_ptr<vector<int>>> crossover2(shared_ptr<vector<int>> parent1, shared_ptr<vector<int>> parent2)
     {
-        cout<<"crossover2"<<endl;
+        GreedyCycle gc = GreedyCycle(distances, costs, rand() % distances.size());
+        LocalSearch ls = LocalSearch(distances, costs);
         shared_ptr<vector<int>> child = make_shared<vector<int>>(*parent1); // Start with a copy of parent1
+        shared_ptr<vector<int>> child2 = make_shared<vector<int>>(*parent2);
+        vector<shared_ptr<vector<int>>> children;
 
         // Create sets for easier search
         unordered_set<int> parent1Nodes(parent1->begin(), parent1->end());
         unordered_set<int> parent2Nodes(parent2->begin(), parent2->end());
-        cout<<"parent1Nodes"<<endl;
+
         // Remove nodes from child that are not present in parent2
         child->erase(
             remove_if(child->begin(), child->end(), [&parent2Nodes](int node)
                       { return parent2Nodes.find(node) == parent2Nodes.end(); }),
             child->end());
-        cout<<"child->erase"<<endl;
-        // Identify missing nodes
-        unordered_set<int> missingNodes;
-        for (int i = 0; i < solutionSize; ++i)
-        { // Assuming solutionSize is the size of the parent solutions
-            if (parent1Nodes.find(i) != parent1Nodes.end() && find(child->begin(), child->end(), i) == child->end())
-            {
-                missingNodes.insert(i);
-            }
-        }
-        cout<<"missingNodes"<<endl;
+        
+        // Remove nodes from child2 that are not present in parent1
+        child2->erase(
+            remove_if(child2->begin(), child2->end(), [&parent1Nodes](int node)
+                      { return parent1Nodes.find(node) == parent1Nodes.end(); }),
+            child2->end());
 
-        // Add random missing nodes to the child until it has the same length as the parents
-        while (child->size() < solutionSize)
+        child = make_shared<vector<int>>(gc.repair(*child).bestSolution); // Repair the child using greedy cycle
+        child2 = make_shared<vector<int>>(gc.repair(*child2).bestSolution); // Repair the child using greedy cycle
+
+        if (doLocalSearch)
         {
-            cout<<missingNodes.size()<<endl;
-            auto it = missingNodes.begin();
-            advance(it, rng() % missingNodes.size()); // Random selection
-            child->push_back(*it);
-            missingNodes.erase(it); // Remove the added node from the set of missing nodes
+            for (int i = 0; i < ls.visited.size(); i++){
+                ls.visited[i] = false;
+            }
+            for (int i = 0; i < child->size(); i++){
+                ls.visited[(*child)[i]] = true;
+            }
+            ls.localSearch(child);
+            for (int i = 0; i < ls.visited.size(); i++){
+                ls.visited[i] = false;
+            }
+            for (int i = 0; i < child2->size(); i++){
+                ls.visited[(*child2)[i]] = true;
+            }
+            ls.localSearch(child2);
         }
-        cout<<"while"<<endl;
-        // Repair the child using local search
-        ls.localSearch(child);
-        cout<<"ls.localSearch"<<endl;
-        // Wrap in a vector and return
-        vector<shared_ptr<vector<int>>> children;
         children.push_back(child);
+        children.push_back(child2);
         return children;
     }
 };
@@ -579,7 +640,7 @@ int main()
         }
         for (auto doLocalSearch : doLocalSearch)
         {
-            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20).get_name() << endl;
+            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20, doLocalSearch).get_name() << endl;
             cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
             Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
             double averageTime = 0;
@@ -588,7 +649,7 @@ int main()
             for (int i = 0; i < N_TRIES; i++)
             {
                 cout << "Try: " << i << endl;
-                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20);
+                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 200, 10000000, maxTimes[problemInstance], 20, doLocalSearch);
                 clock_t start, end;
                 start = clock();
                 Result res = ea.solve();
