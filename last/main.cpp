@@ -70,6 +70,87 @@ public:
     }
 };
 
+
+
+class Greedy2RegretWieghted: public Algo {
+public:
+    Greedy2RegretWieghted(vector<vector<int>> distances, vector<int> costs):
+        Algo(distances, costs, "Greedy2RegretWieghted"){}
+    
+    Result solve()
+    {
+        return Result(0, 0, 0, vector<int>(), vector<int>());
+    }
+
+    Result repair(vector<int> partial_solution){
+        vector<int> bestSolution;
+        vector<int> worstSolution;
+        int bestCost = INT32_MAX;
+        int worstCost = 0;
+        int averageCost = 0;
+        int solution_size = distances.size()/2;
+        vector<int> current_solution = partial_solution;
+        vector<vector<int>> graph;
+        int starting_node;
+        vector<bool> visited(costs.size());
+        for(int i=0; i<partial_solution.size(); i++){
+            visited[partial_solution[i]] = true;
+        }
+        while(current_solution.size() < solution_size){
+            
+            int smallest_increase = INT32_MAX;
+            int insert_index = -1;
+            int insert_node = -1;
+            int max_score = -INT32_MAX;
+
+
+            for(int k=0; k<distances.size(); k++){ // dla wszystkich nieodwiedzonych nodeów
+                if(visited[k]) continue;
+                vector<int> insertion_cost_for_j;
+                for(int j=0; j<current_solution.size(); j++){ // dla każdego nodea z cyklu
+                    int curr = -distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][current_solution[j]] + distances[current_solution[j == 0 ? current_solution.size() - 1 : j - 1]][k] + distances[k][current_solution[j]] + costs[k];
+                    insertion_cost_for_j.push_back(curr);
+                }
+                int smallest_index = -1;
+                int smallest_value = INT32_MAX;
+                int second_smallest_value = INT32_MAX;
+
+                for (int h = 0; h < insertion_cost_for_j.size(); h++) {
+                    if (insertion_cost_for_j[h] < smallest_value) {
+                        second_smallest_value = smallest_value;
+                        smallest_value = insertion_cost_for_j[h];
+                        smallest_index = h;
+                    } else if (insertion_cost_for_j[h] < second_smallest_value) {
+                        second_smallest_value = insertion_cost_for_j[h];
+                    }
+                }
+                int regret = second_smallest_value - smallest_value;
+                int left_node_idx = smallest_index == 0 ? current_solution.size() -1 : smallest_index -1;
+                int insertion_cost = - distances[current_solution[left_node_idx]][current_solution[smallest_index]] + distances[current_solution[left_node_idx]][k] + distances[k][current_solution[smallest_index]] + costs[k];
+                int score = regret - insertion_cost;
+                if(score> max_score){
+                    max_score = score;
+                    insert_index = smallest_index;
+                    insert_node = k;
+                }
+            }
+
+            current_solution.insert(current_solution.begin() + insert_index, insert_node);
+            visited[insert_node] = true; 
+            // curr_graph.push_back(current_solution);
+        }
+        int current_cost = calculate_cost(current_solution);
+        if(current_cost > worstCost){
+            worstCost = current_cost;
+            worstSolution = current_solution;
+        }
+        averageCost += current_cost;
+        current_solution.clear();
+        return Result(bestCost, worstCost, averageCost/distances.size(), bestSolution, worstSolution);
+    }
+};
+
+
 class GreedyCycle : public Algo
 {
 public:
@@ -343,45 +424,45 @@ public:
         }
     }
 
-    Result solve()
+        Result solve()
     {
         generate_initial_population();
         int iteration = 0;
         clock_t start, end;
         start = clock();
-        while (iteration < maxIterations && (double(end - start) / double(CLOCKS_PER_SEC)) < maxTime)
-        {
+        while (iteration < maxIterations && (double(end - start) / double(CLOCKS_PER_SEC)) < maxTime) {
             iteration++;
+            map<int, shared_ptr<vector<int>>> new_population;
+            while (new_population.size() < populationSize - elitismSize) {
                 pair<shared_ptr<vector<int>>, shared_ptr<vector<int>>> parents = select_parents();
                 vector<shared_ptr<vector<int>>> children = crossover(parents.first, parents.second);
-                for (auto child : children)
-                {
-                    if (doLocalSearch)
-                    {   // reset visited
-                        for (int i = 0; i < ls.visited.size(); i++){
-                            ls.visited[i] = false;
-                        }
-                        for (int i = 0; i < child->size(); i++){
-                            ls.visited[(*child)[i]] = true;
-                        }
+                for (auto child: children) {
+                    if (doLocalSearch) {
                         ls.localSearch(child);
                     }
                     int cost = calculate_cost(*child);
-                    //if child is smaller than the biggest in population
-                    if (cost < population.rbegin()->first && !(population.find(cost) == population.end())) {
-                        if (population.size() > populationSize) {
-                            population.erase(population.rbegin()->first);
-                        }
-                        population[cost] = child;
+                    if (new_population.find(cost) == new_population.end() and
+                        population.find(cost) == population.end()) {
+                        new_population[cost] = child;
+                    }
+                    if (new_population.size() == populationSize - elitismSize) {
+                        break;
                     }
                 }
+            }
+            while (population.size() > elitismSize) {
+                population.erase(population.rbegin()->first);
+            }
+            for (auto it = new_population.begin(); it != new_population.end(); it++) {
+                population[it->first] = it->second;
+            }
             end = clock();
         }
 
-        // best solution has lowest score
+        //best solution has lowest score
         int bestCost = population.begin()->first;
         vector<int> bestSolution = *population.begin()->second;
-        return Result(bestCost, bestCost, iteration, bestSolution, bestSolution);
+        return Result(bestCost, bestCost, bestCost, bestSolution, bestSolution);
     }
 
     void generate_initial_population()
@@ -500,9 +581,34 @@ public:
                 secondMissingNodes.pop_back();
             }
         }
+
         vector<shared_ptr<vector<int>>> children;
-        children.push_back(make_shared<vector<int>>(firstChild));
-        children.push_back(make_shared<vector<int>>(secondChild));
+        if (doLocalSearch)
+        {
+            shared_ptr<vector<int>> child = make_shared<vector<int>>(firstChild);
+            shared_ptr<vector<int>> child2 = make_shared<vector<int>>(secondChild);
+            for (int i = 0; i < ls.visited.size(); i++){
+                ls.visited[i] = false;
+            }
+            for (int i = 0; i < child->size(); i++){
+                ls.visited[(*child)[i]] = true;
+            }
+            ls.localSearch(child);
+            for (int i = 0; i < ls.visited.size(); i++){
+                ls.visited[i] = false;
+            }
+            for (int i = 0; i < child2->size(); i++){
+                ls.visited[(*child2)[i]] = true;
+            }
+            ls.localSearch(child2);
+
+            children.push_back(child);
+            children.push_back(child2);
+        }
+        else{
+            children.push_back(make_shared<vector<int>>(firstChild));
+            children.push_back(make_shared<vector<int>>(secondChild));
+        }
         return children;
     }
 
@@ -510,6 +616,7 @@ public:
     {
         GreedyCycle gc = GreedyCycle(distances, costs, rand() % distances.size());
         LocalSearch ls = LocalSearch(distances, costs);
+        Greedy2RegretWieghted g2rw = Greedy2RegretWieghted(distances, costs);
         shared_ptr<vector<int>> child = make_shared<vector<int>>(*parent1); // Start with a copy of parent1
         shared_ptr<vector<int>> child2 = make_shared<vector<int>>(*parent2);
         vector<shared_ptr<vector<int>>> children;
@@ -531,7 +638,7 @@ public:
             child2->end());
 
         child = make_shared<vector<int>>(gc.repair(*child).bestSolution); // Repair the child using greedy cycle
-        child2 = make_shared<vector<int>>(gc.repair(*child2).bestSolution); // Repair the child using greedy cycle
+        child2 = make_shared<vector<int>>(g2rw.repair(*child2).bestSolution); // Repair the child using g2rw
 
         if (doLocalSearch)
         {
@@ -576,6 +683,11 @@ map<ProblemInstance, double> maxTimes = {
     {TSPB, 40.5296},
     {TSPC, 43.9474},
     {TSPD, 45.5663}};
+    map<ProblemInstance, double> maxNewTimes = {
+    {TSPA, 60},
+    {TSPB, 60},
+    {TSPC, 60},
+    {TSPD, 60}};
 
 vector<vector<int>> read_file(string filename)
 {
@@ -618,7 +730,7 @@ vector<vector<int>> calcDistances(vector<vector<int>> data)
 int main()
 {
     string root_path = "../data/";
-    vector<ProblemInstance> problemInstances = {TSPA, TSPB, TSPC, TSPD};
+    vector<ProblemInstance> problemInstances = {TSPA};//, TSPB, TSPC, TSPD};
     vector<bool> doLocalSearch = {true, false};
     int N_TRIES = 20;
     for (auto problemInstance : problemInstances)
@@ -633,7 +745,7 @@ int main()
         }
         for (auto doLocalSearch : doLocalSearch)
         {
-            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 20, 10000000, maxTimes[problemInstance], 20, doLocalSearch).get_name() << endl;
+            cout << "Name: " << EvolutionaryAlgorithm(distances, costs, "EA", 20, 10000000, maxNewTimes[problemInstance], 20, doLocalSearch).get_name() << endl;
             cout << "Problem instance: " << ProblemInstanceStrings[problemInstance] << endl;
             Result algoResult = Result(INT32_MAX, 0, 0, vector<int>(), vector<int>());
             double averageTime = 0;
@@ -642,7 +754,7 @@ int main()
             for (int i = 0; i < N_TRIES; i++)
             {
                 cout << "Try: " << i << endl;
-                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 20, 10000000, maxTimes[problemInstance], 20, doLocalSearch);
+                EvolutionaryAlgorithm ea = EvolutionaryAlgorithm(distances, costs, "EA", 300, 10000000, maxNewTimes[problemInstance], 20, doLocalSearch);
                 clock_t start, end;
                 start = clock();
                 Result res = ea.solve();
