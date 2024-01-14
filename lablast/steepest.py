@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 from utils import shift_2d_to_3d, min_2nd_3rd
 
-n_nodes = 200
+n_nodes = 100
 sol_size = n_nodes//2
 pop_size = 1000
 
@@ -17,7 +17,7 @@ torch.manual_seed(738454387)
 if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     coordinates = torch.rand(n_nodes, 2)
-    costs = torch.rand(n_nodes, device=device)
+    costs = torch.ones(n_nodes, device=device)#torch.rand(n_nodes, device=device)
     distances = torch.cdist(coordinates, coordinates, p=2).to(device)
     #holder = vector from 0 to n_nodes
     holder = torch.arange(n_nodes, device=device)
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         cur_node_costs = costs[current_nodes]
         cur_costs = cur_distance_costs + cur_node_costs
 
-        new_nodes = unvisited_nodes.unsqueeze(-1).expand(-1, -1, unvisited_nodes.shape[1]).transpose(1, 2)#shift_2d_to_3d(unvisited_nodes, unvisited_nodes.shape[1])
+        new_nodes = unvisited_nodes.unsqueeze(-1).expand(-1, -1, unvisited_nodes.shape[1]).transpose(1, 2)
         new_prev_distances = distances[previous_nodes, new_nodes]
         new_next_distances = distances[new_nodes, next_nodes]
         new_distance_costs = new_prev_distances + new_next_distances
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
 
     def reverse_op(solutions, solutions_mask,  i_indices, j_indices):
-        j_indices = j_indices
+        j_indices = j_indices+1
         lengths = j_indices - i_indices
         range_tensor_masked = range_tensor[solutions_mask]
         corrected_indices = i_indices.unsqueeze(1) + lengths.unsqueeze(1) - 1 - (range_tensor_masked - i_indices.unsqueeze(1))
@@ -138,24 +138,53 @@ if __name__ == "__main__":
 
 
     def intra_move(solutions):
-        best_cost = calc_cost_batched(solutions)
-        best_move_i = torch.zeros(solutions.shape[0], device=device, dtype=torch.long)
-        best_move_j = torch.zeros(solutions.shape[0], device=device, dtype=torch.long)
 
-        before_cost = calc_cost_batched(solutions)
+        edge1_first = solutions.unsqueeze(-1).expand(-1, -1, solutions.shape[1])
+        edge1_second = edge1_first.roll(-1, dims=1)
 
-        for i in range(sol_size):
-            for j in range(i+2, sol_size+1):#TODO maybe +2 i do not know
-                #reverse from i to j
-                solutions[:, i:j] = solutions[:, i:j].flip(dims=(1,))
-                new_cost = calc_cost_batched(solutions)
-                #deapply move
-                solutions[:, i:j] = solutions[:, i:j].flip(dims=(1,))
-                best_move_i[new_cost < best_cost] = i
-                best_move_j[new_cost < best_cost] = j
-                best_cost[new_cost < best_cost] = new_cost[new_cost < best_cost]
+        edge2_first = solutions.unsqueeze(-1).expand(-1, -1, solutions.shape[1]).transpose(1, 2)
+        edge2_second = edge2_first.roll(-1, dims=2)
 
-        return best_cost - before_cost,best_move_i, best_move_j
+        before_cost = distances[edge1_first, edge1_second] + distances[edge2_first, edge2_second]
+        after_cost = distances[edge1_first, edge2_first] + distances[edge1_second, edge2_second]
+
+        deltas = after_cost - before_cost
+        #make upper traingular +2 to avoid self loops
+        deltas[torch.tril(torch.ones_like(deltas, dtype=torch.bool), diagonal=1)] = 999999
+
+
+        best_move_i, best_move_j = min_2nd_3rd(deltas)
+        best_delta = deltas[torch.arange(pop_size), best_move_i, best_move_j]
+
+
+        best_move_i+=1
+        mask = best_delta < 0
+        solutions_copy = solutions.clone()
+        bb_costs = calc_cost_batched(solutions_copy)
+        solutions_copy = reverse_op(solutions_copy[mask], mask, best_move_i[mask], best_move_j[mask])
+        aa_costs = calc_cost_batched(solutions_copy)
+        dedeltas = aa_costs - bb_costs[mask]
+        best_delta_mask = best_delta[mask]
+        assert torch.allclose(dedeltas, best_delta_mask, atol=1e-3)
+
+        # best_cost = calc_cost_batched(solutions)
+        # best_move_i = torch.zeros(solutions.shape[0], device=device, dtype=torch.long)
+        # best_move_j = torch.zeros(solutions.shape[0], device=device, dtype=torch.long)
+        #
+        # before_cost = calc_cost_batched(solutions)
+        #
+        # for i in range(sol_size):
+        #     for j in range(i+2, sol_size+1):#TODO maybe +2 i do not know
+        #         #reverse from i to j
+        #         solutions[:, i:j] = solutions[:, i:j].flip(dims=(1,))
+        #         new_cost = calc_cost_batched(solutions)
+        #         #deapply move
+        #         solutions[:, i:j] = solutions[:, i:j].flip(dims=(1,))
+        #         best_move_i[new_cost < best_cost] = i
+        #         best_move_j[new_cost < best_cost] = j
+        #         best_cost[new_cost < best_cost] = new_cost[new_cost < best_cost]
+
+        return best_delta,best_move_i, best_move_j
 
     population_factory = torch.rand((pop_size, n_nodes), device=device)
     _, population = torch.topk(population_factory, sol_size, dim=1, largest=False)
@@ -196,7 +225,9 @@ if __name__ == "__main__":
         #apply intra
         population[best_intra_mask] = reverse_op(population[best_intra_mask], best_intra_mask, best_intra_i[best_intra_mask], best_intra_j[best_intra_mask])
         population_costs[best_intra_mask] += best_intra_delta[best_intra_mask]
-
+        if not torch.isclose(population_costs, calc_cost_batched(population), atol=0.01).all():
+            print("not close")
+            print("Max difference:", torch.max(torch.abs(population_costs - calc_cost_batched(population))))
 
         # #find best solution
         for p in population:

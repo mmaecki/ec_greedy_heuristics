@@ -1,14 +1,10 @@
 import torch
 
-# Original tensor
-original_tensor = torch.tensor([[4, 5, 6],
-                                [7, 8, 9],
-                                [10, 11, 12]])
+# Create a tensor of shape (100, 30, 30)
+matrix = torch.zeros(5, 4, 4)
 
-# Number of times to repeat each row
-num_repeats = 3
+# Fill the lower triangular part of each 30x30 submatrix with 99999
+matrix[torch.tril(torch.ones_like(matrix, dtype=torch.bool), diagonal=1)] = 999999
 
-# Replicate the rows
-result_tensor = original_tensor.unsqueeze(-1).expand(-1, -1, 3).transpose(1, 2)
+print(matrix)
 
-print(result_tensor)

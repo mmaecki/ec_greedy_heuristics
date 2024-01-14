@@ -20,3 +20,13 @@ def min_2nd_3rd(matrix_3d):
     j_indices = min_indices % matrix_3d.shape[2]
 
     return i_indices, j_indices
+
+
+def min_1st_2nd(matrix_2d):
+    reshaped_matrix = matrix_2d.view(matrix_2d.shape[0], -1)
+
+    min_indices = torch.argmin(reshaped_matrix, dim=1)
+    i_indices = min_indices // matrix_2d.shape[1]
+    j_indices = min_indices % matrix_2d.shape[1]
+
+    return i_indices, j_indices
