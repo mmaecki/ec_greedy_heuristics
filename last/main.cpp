@@ -615,6 +615,24 @@ vector<vector<int>> calcDistances(vector<vector<int>> data)
     return distances;
 }
 
+bool checkSolution(vector<int> solution)
+{
+    vector<bool> visited(200);
+    if(solution.size() != 100)
+    {
+        return false;
+    }
+    for (int i = 0; i < solution.size(); i++)
+    {
+        if (visited[solution[i]])
+        {
+            return false;
+        }
+        visited[solution[i]] = true;
+    }
+    return true;
+}
+
 int main()
 {
     string root_path = "../data/";
@@ -648,6 +666,10 @@ int main()
                 Result res = ea.solve();
                 end = clock();
                 vector<int> solution = res.bestSolution;
+                if(!checkSolution(solution)){
+                    cout << "Wrong solution" << endl;
+                    return 1;
+                }
                 avg_iterations_number += res.averageCost; // iterations number
                 double time_taken = double(end - start) / double(CLOCKS_PER_SEC);
                 int cost = ea.calculate_cost(solution);
