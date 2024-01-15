@@ -14,7 +14,7 @@ pop_size = 1000
 torch.manual_seed(738454387)
 
 
-def perturb_swap():
+def perturb_swap(solutions):
     ...
 
 
@@ -25,11 +25,22 @@ def perturb_revers_reverse():
 def perturb_exchange():
     ...
 
-def perturb_shuffle():
-    ...
+def perturb_shuffle(solutions):
+    num_rows, num_cols = solutions.shape
+    length = torch.randint(low=10, high=min(21, num_cols+1), size=(1,)).item()
+    start_index = torch.randint(low=0, high=num_cols - length + 1, size=(1,)).item()
 
-def perturbe():
-    ...
+    # Generate random indices for the specified subsequence in each row
+    random_indices = torch.randperm(length)
+
+    # Shuffle the elements within the specified subsequence
+    solutions[:, (start_index):(start_index+length)] = solutions[:, (start_index):(start_index+length)][:, random_indices]
+
+    return solutions
+
+
+def perturbe(solutions):
+    return perturb_shuffle(solutions)
 
 
 if __name__ == "__main__":
@@ -137,7 +148,7 @@ if __name__ == "__main__":
         plt.text(coordinates[i, 0], coordinates[i, 1], f"{i}")
     plt.pause(0.1)
     plt.show()
-    for iteartion in tqdm(range(1000000)):
+    for iteartion in range(1000000):
         #inter move
         best_inter_delta, best_inter_i, best_inter_j, best_inter_move = inter_move(population)
         #intra move
@@ -145,7 +156,6 @@ if __name__ == "__main__":
         #apply best move
         best_inter_mask = (best_inter_delta <= best_intra_delta) & (best_inter_delta < 0)
         best_intra_mask = (best_intra_delta < best_inter_delta) & (best_intra_delta < 0)
-        best_delta = torch.min(best_inter_delta, best_intra_delta)
         if not torch.any(best_inter_mask | best_intra_mask):
             print("no improvement")
             break
@@ -157,9 +167,18 @@ if __name__ == "__main__":
         population_costs[best_intra_mask] += best_intra_delta[best_intra_mask]
         # #find best solution
         current_best_cost, best_idx = torch.min(population_costs, dim=0)
-        if False and iteartion%100 == 0 and current_best_cost < best_solution_cost:
+        if current_best_cost < best_solution_cost:
             best_solution_cost = current_best_cost
             best_solution = population[best_idx].detach().cpu()
+            print("New best", best_solution_cost.item())
+
+        #perturbe not improvable
+        best_delta = torch.min(torch.stack([best_intra_delta, best_inter_delta]), dim=0)[0]
+        not_improvable = best_delta >= 0
+        if torch.any(not_improvable):
+            population[not_improvable] = perturbe(population[not_improvable])
+            population_costs[not_improvable] = calc_cost_batched(population)[not_improvable]
+        if iteartion%100 == 0:
             #plot solution
             plt.scatter(coordinates[:, 0], coordinates[:, 1])
             plt.plot(coordinates[best_solution, 0].tolist(), coordinates[best_solution, 1].tolist())
