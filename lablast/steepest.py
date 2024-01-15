@@ -44,9 +44,11 @@ def perturbe(solutions):
 
 
 if __name__ == "__main__":
+
+# def ils(distances, costs):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     coordinates = torch.rand(n_nodes, 2)
-    costs = torch.ones(n_nodes, device=device)#torch.rand(n_nodes, device=device)
+    costs = torch.rand(n_nodes, device=device)
     distances = torch.cdist(coordinates, coordinates, p=2).to(device)
     #holder = vector from 0 to n_nodes
     holder = torch.arange(n_nodes, device=device)
