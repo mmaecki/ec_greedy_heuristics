@@ -1,8 +1,13 @@
+import time
+import warnings
 from time import sleep
+from pathlib import Path
 
+import numpy as np
 import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
+import pandas as pd
 
 from utils import shift_2d_to_3d, min_2nd_3rd
 
@@ -15,16 +20,62 @@ torch.manual_seed(738454387)
 
 
 def perturb_swap(solutions):
-    ...
+    num_rows, num_cols = solutions.shape
+    # Generate a random index for each row
+    i = torch.randint(num_cols, (num_rows,))
+
+    # Compute the next index for each row (circular)
+    next_i = (i + 1) % num_cols
+
+    # Perform the swap for each row
+    arangement = torch.arange(num_rows)
+    solutions[arangement, i], solutions[arangement, next_i] = \
+    solutions[arangement, next_i], solutions[arangement, i]
+
+    return solutions
 
 
-def perturb_revers_reverse():
-    ...
+def perturb_reverse_reverse(solutions):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        num_rows, num_cols = solutions.shape
+
+        # Length from 3 to 8
+        lengths = torch.randint(3, 9, (1,))
+        i_values = torch.randint(0, num_cols - lengths + 1, (1,))
+        j_values = i_values + lengths
+        flipped = solutions[:, i_values:j_values].clone().flip(1)
+        solutions[torch.arange(num_rows), i_values:j_values] = flipped
+
+        # Update indices for second reverse
+        k_values = torch.randint(i_values, j_values, (1,))
+        h_values = torch.randint(k_values, j_values + 1, (1,))
+
+        flipped = solutions[:, k_values:h_values].clone().flip(1)
+        solutions[torch.arange(num_rows), k_values:h_values] = flipped
+
+        return solutions
 
 
-def perturb_exchange():
-    ...
+def perturb_exchange(solutions):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        #3 to 5
+        how_many = torch.randint(3, 6, (1,))
+        num_rows, num_cols = solutions.shape
+        # Generate a random index for each row
+        i = torch.randint(num_cols, (num_rows,how_many))
+        j  = torch.randint(num_cols, (num_rows,how_many))
+        # Compute the next index for each row (circular)
 
+        # Perform the swap for each row
+        arangement = torch.arange(num_rows)
+        solutions = solutions.clone()
+        for k in range(how_many):
+            solutions[arangement, i[:,k]], solutions[arangement, j[:,k]] = \
+                solutions[arangement, j[:,k]], solutions[arangement, i[:,k]]
+            solutions = solutions.clone()#TODO inefficient
+        return solutions
 def perturb_shuffle(solutions):
     num_rows, num_cols = solutions.shape
     length = torch.randint(low=10, high=min(21, num_cols+1), size=(1,)).item()
@@ -40,26 +91,27 @@ def perturb_shuffle(solutions):
 
 
 def perturbe(solutions):
-    return perturb_shuffle(solutions)
+    permutation_number = torch.randint(0, 4, (solutions.shape[0],))
+    solutions = solutions.clone()
+    solutions[permutation_number == 0] = perturb_swap(solutions[permutation_number == 0])
+    solutions[permutation_number == 1] = perturb_reverse_reverse(solutions[permutation_number == 1])
+    solutions[permutation_number == 2] = perturb_exchange(solutions[permutation_number == 2])
+    solutions[permutation_number == 3] = perturb_shuffle(solutions[permutation_number == 3])
+    return solutions
 
 
-if __name__ == "__main__":
-
-# def ils(distances, costs):
+def ils(distances, costs, max_seconds=60):
+    number_of_local_search_iterations = 0
+    start_time = time.time()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    coordinates = torch.rand(n_nodes, 2)
-    costs = torch.rand(n_nodes, device=device)
-    distances = torch.cdist(coordinates, coordinates, p=2).to(device)
+    costs = costs.to(device)
+    distances = distances.to(device)
     #holder = vector from 0 to n_nodes
     holder = torch.arange(n_nodes, device=device)
     holder = holder.repeat((pop_size, 1))
     bool_marker = torch.zeros(pop_size, n_nodes, device=device, dtype=torch.bool)
     #range_tensor
     range_tensor = torch.arange(sol_size, device=device).repeat((pop_size, 1))
-
-    def calc_cost(solution):
-        dist_cost = torch.sum(distances[solution, solution.roll(-1)])
-        return dist_cost + torch.sum(costs[solution])
 
     def  calc_cost_batched(solutions):
         dist_cost = torch.sum(distances[solutions, solutions.roll(-1, dims=1)], dim=-1)
@@ -144,13 +196,7 @@ if __name__ == "__main__":
     population_costs = calc_cost_batched(population)
     best_solution = population[torch.argmin(population_costs)]
     best_solution_cost = torch.min(population_costs)
-    plt.scatter(coordinates[:, 0], coordinates[:, 1])
-    plt.plot(coordinates[population[0].cpu().numpy()][:, 0], coordinates[population[0].cpu().numpy()][:, 1])
-    for i in range(len(coordinates)):
-        plt.text(coordinates[i, 0], coordinates[i, 1], f"{i}")
-    plt.pause(0.1)
-    plt.show()
-    for iteartion in range(1000000):
+    while (time.time() - start_time) < max_seconds:
         #inter move
         best_inter_delta, best_inter_i, best_inter_j, best_inter_move = inter_move(population)
         #intra move
@@ -158,9 +204,6 @@ if __name__ == "__main__":
         #apply best move
         best_inter_mask = (best_inter_delta <= best_intra_delta) & (best_inter_delta < 0)
         best_intra_mask = (best_intra_delta < best_inter_delta) & (best_intra_delta < 0)
-        if not torch.any(best_inter_mask | best_intra_mask):
-            print("no improvement")
-            break
         #apply inter
         population[best_inter_mask, best_inter_i[best_inter_mask]] = best_inter_move[best_inter_mask]
         population_costs[best_inter_mask] += best_inter_delta[best_inter_mask]
@@ -172,25 +215,52 @@ if __name__ == "__main__":
         if current_best_cost < best_solution_cost:
             best_solution_cost = current_best_cost
             best_solution = population[best_idx].detach().cpu()
-            print("New best", best_solution_cost.item())
 
         #perturbe not improvable
         best_delta = torch.min(torch.stack([best_intra_delta, best_inter_delta]), dim=0)[0]
         not_improvable = best_delta >= 0
         if torch.any(not_improvable):
+            number_of_local_search_iterations += torch.sum(not_improvable).item()
             population[not_improvable] = perturbe(population[not_improvable])
             population_costs[not_improvable] = calc_cost_batched(population)[not_improvable]
-        if iteartion%100 == 0:
-            #plot solution
-            plt.scatter(coordinates[:, 0], coordinates[:, 1])
-            plt.plot(coordinates[best_solution, 0].tolist(), coordinates[best_solution, 1].tolist())
-            plt.plot([coordinates[best_solution[0], 0], coordinates[best_solution[-1], 0]],
-                     [coordinates[best_solution[0], 1], coordinates[best_solution[-1], 1]], 'ro-')
-            #print node indices
-            for i in range(len(best_solution)):
-                plt.text(coordinates[best_solution[i], 0], coordinates[best_solution[i], 1], f"{i}_{best_solution[i]}")
-            plt.title("IDX: {} Total cost: {}".format(best_idx, best_solution_cost))
-            plt.show()
-            sleep(1)
+
+    return best_solution, best_solution_cost, number_of_local_search_iterations
 
 
+DATA_PATH = Path("../data")
+
+def main():
+    for file in sorted(DATA_PATH.iterdir()):
+        print(file.name)
+        #to numpy
+        data = pd.read_csv(file, sep=";", header=None).values
+        costs = torch.tensor(data[:, 2], dtype=torch.long)
+        coordinates = data[:, 0:2]
+        distances = torch.cdist(torch.tensor(coordinates, dtype=torch.float32), torch.tensor(coordinates, dtype=torch.float32))
+        distances = torch.round(distances).long()
+        #solve
+        best_solution, best_solution_cost, n_iterations = ils(distances, costs, max_seconds=60)
+        calculated_cost = torch.sum(distances[best_solution, best_solution.roll(-1)]) + torch.sum(costs[best_solution])
+        print("Compare", calculated_cost, best_solution_cost)
+        print("Iterations", n_iterations)
+        print("Solution", best_solution)
+        #print solution
+        normalized_costs = (costs - costs.min())/ (costs.max() - costs.min()).tolist()
+        plt.scatter(coordinates[:, 0], coordinates[:, 1], c=normalized_costs)
+        #plot coordinates with color cost
+        plt.plot(coordinates[best_solution, 0].tolist(), coordinates[best_solution, 1].tolist())
+        plt.plot([coordinates[best_solution[0], 0], coordinates[best_solution[-1], 0]],
+                 [coordinates[best_solution[0], 1], coordinates[best_solution[-1], 1]], 'ro-')
+        # print node indices
+        for i in range(len(best_solution)):
+            plt.text(coordinates[best_solution[i], 0], coordinates[best_solution[i], 1], f"{i}_{best_solution[i]}")
+        plt.title(f"Instance {file.name} with cost {best_solution_cost}")
+        #show color scale
+        plt.colorbar()
+        plt.show()
+        sleep(1)
+
+
+
+if __name__ == "__main__":
+    main()
